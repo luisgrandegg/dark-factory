@@ -101,7 +101,15 @@ flight, what each is doing, today's spend, and what failed and why.
 library of repeatable skills the orchestrator can choose from.
 
 - [ ] Skills: dependency upgrade, codemod, migration generation, flake triage
-- [ ] Recurring jobs wired to `schedule.yml`
+- [x] Recurring jobs wired to `schedule.yml` —
+      `.factory/schedule.yml` declares recurring WorkItem templates
+      (hourly/daily/weekly/monthly cadence with UTC hour gating);
+      `.github/workflows/recurring-jobs.yml` runs hourly and calls
+      `scripts/factory/schedule-tick.sh`, which evaluates each job
+      against `schedule-state.json` on the state branch and files
+      due issues. Smoke-tested by `scripts/test/schedule-smoke.sh`
+      (16 decision cases, no GitHub round-trip). Schema documented
+      in `.factory/schedule-schema.md`.
 - [ ] Multi-task plans with parallel implementation
 - [ ] Optional MCP integrations (additional source-of-truth tools)
 
