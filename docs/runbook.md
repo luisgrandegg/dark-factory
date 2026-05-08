@@ -98,6 +98,22 @@ If `doctor.sh` flags an issue with multiple `stage:*` labels, do this:
 4. If you can't tell, escalate it (see playbook) and let a human read
    the comments.
 
+### Spin up a throwaway test factory
+
+When you want to exercise a guardrail without polluting the real
+factory's history (e.g. testing the secret-scan workflow with a fake
+credential, or tripping an `approvalGates` path on purpose), don't do
+it here. Use:
+
+```bash
+scripts/seed-test-repo.sh --name dark-factory-test
+```
+
+That creates a private GitHub repo, pushes the current tree as a single
+seed commit, clones it locally, and runs `setup.sh` for you. Teardown
+is a single `gh repo delete` when you're done. See the script's
+`--help` for flags.
+
 ### Replace a bad PR
 
 If a PR opened by the factory is wrong in a way that can't be fixed by
