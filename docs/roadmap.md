@@ -101,6 +101,18 @@ flight, what each is doing, today's spend, and what failed and why.
 library of repeatable skills the orchestrator can choose from.
 
 - [ ] Skills: dependency upgrade, codemod, migration generation, flake triage
+  - [x] Dependency upgrade —
+        `.claude/skills/dep-upgrade/SKILL.md` (operational checklist),
+        `scripts/skills/dep-upgrade-detect.sh` (ecosystem detector,
+        25 cases in `scripts/test/dep-upgrade-detect-smoke.sh`),
+        `docs/skills/dep-upgrade.md` (long-form rationale),
+        `skill:dep-upgrade` label in policy, and a `weekly-deps`
+        example in `.factory/schedule.yml`. Conservative-by-default:
+        patch+minor only, one PR per ecosystem, hard-reset on test
+        failure, never edits source code or approval-gate paths.
+  - [ ] Codemod
+  - [ ] Migration generation
+  - [ ] Flake triage
 - [x] Recurring jobs wired to `schedule.yml` —
       `.factory/schedule.yml` declares recurring WorkItem templates
       (hourly/daily/weekly/monthly cadence with UTC hour gating);

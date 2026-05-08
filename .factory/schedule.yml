@@ -23,17 +23,20 @@ version: 1
 
 jobs: []
 
-# Examples:
+# Examples (commented out — uncomment & move into `jobs:` above to enable):
 #
 # - id: weekly-deps
 #   title: "Dependency upgrade sweep"
 #   body: |
-#     Run the dependency-upgrade skill against the current lock files
-#     and open one PR per ecosystem. See docs/skills/dep-upgrade.md.
+#     Use the **dep-upgrade** skill (`.claude/skills/dep-upgrade/SKILL.md`)
+#     to bump patch and minor versions across every ecosystem present in
+#     this repo. Open one PR per ecosystem; do not apply major bumps.
+#     See `docs/skills/dep-upgrade.md` for the full procedure and
+#     guardrails.
 #   every: weekly
 #   onDayOfWeek: monday
 #   onHour: 13
-#   labels: ["stage:intake", "priority:p3", "factory:recurring"]
+#   labels: ["stage:intake", "priority:p3", "factory:recurring", "skill:dep-upgrade"]
 #
 # - id: nightly-flake-triage
 #   title: "Nightly flake triage"
