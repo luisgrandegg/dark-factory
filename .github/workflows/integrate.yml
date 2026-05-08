@@ -66,18 +66,36 @@ jobs:
             echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
 
-          # 2. No approval-gate path was touched (Phase 1 enforcement).
-          # Static gate list mirrors policy.approvalGates path patterns.
-          # Phase 2 will load this from .factory/policy.yml dynamically.
-          gated_hits=$(gh pr diff "$PR" --name-only | grep -E '^(infra/|migrations/|\.github/workflows/|\.factory/policy\.yml$|\.claude/settings\.json$)' || true)
-          if [[ -n "$gated_hits" ]]; then
-            body=$(printf 'Auto-merge sealer: PR touches gated paths, requires human review:\n%s\n' "$gated_hits")
+          # 2. No approval-gate path or label trips. Patterns live in
+          # .factory/policy.yml under approvalGates and are loaded
+          # dynamically by scripts/factory/check-gates.sh (Phase 2).
+          labels_csv=$(jq -r '[.labels[].name] | join(",")' <<<"$state")
+          gate_out=$(gh pr diff "$PR" --name-only \
+            | scripts/factory/check-gates.sh --labels "$labels_csv" || true)
+          if [[ -n "$gate_out" ]]; then
+            body=$(printf 'Auto-merge sealer: PR trips approval gates, requires human review:\n```\n%s\n```\n' "$gate_out")
             gh pr comment "$PR" --body "$body"
             gh pr edit "$PR" --add-label "needs-human" --remove-label "stage:integrate"
             echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
 
-          # 3. CI is green.
+          # 3. Secret scanning. The secret-scan workflow runs on every PR
+          # (see .github/workflows/secret-scan.yml). We refuse to seal a
+          # merge if it failed; "no run yet" counts as pending.
+          secret_state=$(gh pr checks "$PR" --json name,state,bucket \
+            --jq '[.[] | select(.name | startswith("Secret scan"))] | first // null')
+          if [[ "$secret_state" == "null" ]]; then
+            echo "secret-scan has not run yet; will retry on next event" >&2
+            echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          secret_bucket=$(jq -r '.bucket // empty' <<<"$secret_state")
+          if [[ "$secret_bucket" == "fail" ]]; then
+            gh pr comment "$PR" --body "Auto-merge sealer: secret-scan failed; refusing to merge. Investigate the scan output before re-labelling stage:integrate."
+            gh pr edit "$PR" --add-label "needs-human" --remove-label "stage:integrate"
+            echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+
+          # 4. CI is green.
           checks=$(gh pr checks "$PR" --json bucket --jq '[.[].bucket] | unique')
           if grep -qE '"fail"|"cancel"' <<<"$checks"; then
             echo "ci not green: $checks" >&2

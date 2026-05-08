@@ -137,6 +137,40 @@ if ! contents_put "$repo" "$ledger" "$path" "$msg" "$content_b64" "$existing_sha
 fi
 
 if [[ "$mode" == "end" ]]; then
+  # Roll today's usage into state/budget.json so the per-day kill-switch
+  # has a cheap O(1) check (Phase 2). Best-effort: a failed roll-up logs
+  # but does not fail the Run.
+  state_branch=$(policy_state_branch); state_branch=${state_branch:-factory/state}
+  bdoc=$(contents_get "$repo" "$state_branch" "budget.json" || true)
+  bsha=""; bbody=""
+  if [[ -n "$bdoc" ]]; then
+    bsha=$(printf '%s' "$bdoc" | python3 -c 'import sys,json; print(json.loads(sys.stdin.read()).get("sha",""))')
+    bbody=$(printf '%s' "$bdoc" | contents_decode)
+  fi
+  rollup=$(python3 - "$bbody" "$tool_calls" "$wall_seconds" <<'PY'
+import sys, json, datetime
+body, tc, ws = sys.argv[1], int(sys.argv[2] or 0), int(sys.argv[3] or 0)
+try:
+    doc = json.loads(body) if body.strip() else {}
+except Exception:
+    doc = {}
+day = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+days = doc.setdefault("days", {})
+d = days.setdefault(day, {"tokens": 0, "toolCalls": 0, "wallMinutes": 0})
+d["toolCalls"] = int(d.get("toolCalls", 0) or 0) + tc
+# wallSeconds → wallMinutes, rounded.
+d["wallMinutes"] = int(d.get("wallMinutes", 0) or 0) + (ws // 60)
+# Trim to last 14 days to keep budget.json bounded.
+for old in sorted(days)[:-14]:
+    days.pop(old, None)
+doc["updatedAt"] = datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z"
+print(json.dumps(doc, indent=2))
+PY
+)
+  rb64=$(printf '%s\n' "$rollup" | b64)
+  contents_put "$repo" "$state_branch" "budget.json" "factory: budget rollup ($id)" "$rb64" "$bsha" >/dev/null 2>&1 \
+    || log "warning: budget.json roll-up failed"
+
   # Append to per-workitem index. JSONL keeps appends commutative.
   index_path="runs/by-workitem/$workitem.jsonl"
   if [[ -z "$workitem" ]]; then

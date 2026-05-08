@@ -50,14 +50,14 @@ issue land as a merged PR within budget.
 **Exit:** the factory is safe enough to leave running unattended on a real
 side-project repo.
 
-- [ ] Approval gates wired to path patterns and labels
-- [ ] Budget enforcement in the foreman (kill-switch on overrun)
-- [ ] Secret scanning on every PR (block merge on hit)
-- [ ] Escalation flow with human assignment + `escalated` label
-- [ ] PreToolUse hook blocking destructive ops without explicit auth
-- [ ] Worktree isolation enforced (no agent edits `main`)
-- [ ] `doctor.sh` covers the top failure modes
-- [ ] Runbook + escalation playbook
+- [x] Approval gates wired to path patterns and labels
+- [x] Budget enforcement in the foreman (kill-switch on overrun)
+- [x] Secret scanning on every PR (block merge on hit)
+- [x] Escalation flow with human assignment + `escalated` label
+- [x] PreToolUse hook blocking destructive ops without explicit auth
+- [x] Worktree isolation enforced (no agent edits `main`)
+- [x] `doctor.sh` covers the top failure modes
+- [x] Runbook + escalation playbook
 
 ---
 
