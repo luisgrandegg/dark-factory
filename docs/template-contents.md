@@ -20,11 +20,14 @@ ready to operate after a one-shot setup.
 │   └── settings.json            # tool allowlist, hooks, model defaults
 │
 ├── .factory/
-│   ├── policy.yml               # budgets, allowlists, approval gates
+│   ├── policy.yml               # budgets, allowlists, approval gates,
+│   │                            # ledger branch name
 │   ├── prompts/                 # canonical prompts per station
-│   ├── runs/                    # run ledger (one file per run, JSON)
-│   ├── state/                   # WorkItem state snapshots
+│   ├── state/                   # derived snapshots (lock.json, budget.json)
 │   └── dashboard/               # static control room (generated)
+│                                # Run ledger lives on a sibling orphan
+│                                # branch (default factory/ledger; see
+│                                # ADR 0002), NOT under .factory/ on main.
 │
 ├── .github/
 │   ├── workflows/
@@ -63,11 +66,14 @@ A single command after cloning. Idempotent.
 1. Verifies `gh` is installed and authenticated.
 2. Creates the labels the factory needs (`stage:*`, `priority:*`,
    `needs-human`, `escalated`, `factory:*`).
-3. Creates the GitHub Environments and required secrets (`ANTHROPIC_API_KEY`,
-   etc.) — prompts the user for values it can't infer.
-4. Enables the workflows.
-5. Files a "first ticket" issue that the factory consumes end-to-end as a
-   smoke test.
+3. Prompts for the **ledger branch name** (default `factory/ledger`),
+   writes it to `.factory/policy.yml`, creates the orphan branch with a
+   root `README.md`, and pushes it.
+4. Wires the `factory-deploy` GitHub Environment for any deploy creds
+   the user wants the factory to be able to use; non-deploy credentials
+   come from the host (see ADR 0004).
+5. Files a "first ticket" issue that the factory consumes end-to-end as
+   a smoke test on first `/factory-tick`.
 6. Prints links to the control room and the runbook.
 
 Failure modes surface as a list of `doctor.sh`-fixable items.

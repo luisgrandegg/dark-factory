@@ -68,14 +68,14 @@ stations run inside the orchestrator session.
 
 A single `factory-tick` invocation does, roughly:
 
-1. Read state: pull the issues + PRs filtered by `stage:*` labels, read the
-   last few entries of `.factory/runs/`.
+1. Read state: pull the issues + PRs filtered by `stage:*` labels, read
+   the most recent ledger entries from the ledger branch (ADR 0002).
 2. Pick the highest-priority actionable WorkItem honouring concurrency
    (ADR 0003).
-3. Open a Run ledger entry (ADR 0004).
+3. Open a Run ledger entry on the ledger branch (ADR 0004).
 4. Spawn the station's subagent / skill.
-5. On completion: update the WorkItem's labels, post the artefact comment,
-   patch the ledger entry, commit `.factory/runs/`.
+5. On completion: update the WorkItem's labels, post the artefact
+   comment, finalise the ledger entry on the ledger branch.
 6. Loop until: queue empty, budget hit, or operator interrupts.
 
 In web mode, the loop sleeps between ticks and is woken by PR-activity

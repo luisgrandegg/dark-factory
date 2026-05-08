@@ -31,7 +31,8 @@ factory.
 - [ ] `factory` skill + `/factory-tick` slash command (the orchestrator loop)
 - [ ] One subagent each: `intake`, `plan`, `review`
 - [ ] `.factory/policy.yml` with conservative defaults
-- [ ] `.factory/runs/` ledger format defined and written by every run
+- [ ] Ledger format defined and written to the configured ledger branch
+      (default `factory/ledger`, orphan; see ADR 0002)
 - [ ] `.factory/state/lock.json` acquire/release wired into the tick loop
 - [ ] `.github/workflows/ci.yml` — project tests/lint on PRs (only)
 - [ ] `.github/workflows/integrate.yml` — auto-merge sealer on `stage:integrate`
@@ -65,7 +66,7 @@ side-project repo.
 **Exit:** an operator can answer, in under a minute: how many WorkItems are in
 flight, what each is doing, today's spend, and what failed and why.
 
-- [ ] Static control-room page generated from `.factory/runs/`
+- [ ] Static control-room page generated from the ledger branch
 - [ ] Daily cost + throughput report posted as an issue / Slack message
 - [ ] Failure clustering (top reasons jobs fail this week)
 - [ ] Per-station latency / success rate

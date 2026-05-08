@@ -74,8 +74,8 @@ attribution is still the Run.
 Every station, regardless of which session is driving it, follows the
 same shape:
 
-1. **Start:** generate a ULID. Write
-   `.factory/runs/YYYY/MM/DD/<ulid>.json` with
+1. **Start:** generate a ULID. Write `runs/YYYY/MM/DD/<ulid>.json` to the
+   configured ledger branch (ADR 0002) with
    `{ status: "running", workItemId, station, host, sessionId, startedAt }`.
 2. **Invoke** the station subagent / skill, threading `runId` so any
    sub-runs can record `parentRunId`.

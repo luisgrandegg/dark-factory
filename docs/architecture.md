@@ -160,9 +160,10 @@ Policy
 
 ### 2.4 Why no database
 
-For v1, persisting in the repo (issues, PR comments, files in
-`.factory/runs/`) keeps the template **portable** and **auditable**. Promote to
-a real store only when we hit limits.
+For v1, persisting in the repo (issues, PR comments on `main`, ledger
+files on a sibling `factory/ledger` branch — see ADR 0002) keeps the
+template **portable** and **auditable**. Promote to a real store only
+when we hit limits.
 
 ---
 
@@ -237,8 +238,8 @@ The whole thing is only safe because of these. Listed in priority order:
    `rm -rf`, destructive SQL unless explicitly authorised.
 6. **Secrets scoping** — secrets injected per-station via the conveyor; never
    committed; scanning runs on every PR.
-7. **Audit trail** — every Run is logged to `.factory/runs/` and surfaced in
-   the control room.
+7. **Audit trail** — every Run is logged to the ledger branch (ADR 0002)
+   and surfaced in the control room.
 
 ---
 
