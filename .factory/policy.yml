@@ -195,4 +195,8 @@ labels:
     - { name: "factory:lock-stolen", color: "ededed", description: "Recovered a stale lock" }
     - { name: "factory:report",   color: "c5def5", description: "Factory daily / weekly report" }
     - { name: "factory:recurring", color: "c5def5", description: "Filed by .factory/schedule.yml" }
+  skills:
+    # Per-skill labels. The implement station inspects these to pick the
+    # right SKILL.md (under .claude/skills/<name>/) when working a WorkItem.
+    - { name: "skill:dep-upgrade", color: "c2e0c6", description: "Use the dep-upgrade skill to apply patch+minor dependency upgrades" }
 
