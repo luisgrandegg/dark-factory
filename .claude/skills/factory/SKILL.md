@@ -167,7 +167,25 @@ files or tasks — it produced a **test plan** (a list of objective checks
 plus regression checks). The implement agent owns the strategy; the test
 plan is the contract.
 
-Concretely:
+##### Branch, commit, and PR shape
+
+These conventions live here because implement is the only station that
+creates branches, commits, or PRs in Phase 1. Don't re-state them in
+CLAUDE.md — every tick of every stage would pay the token cost.
+
+- **Branch:** `claude/<short-slug>-<issue#>`. Created by this step;
+  deleted by the integrate sealer on merge. The slug is derived from
+  the issue title (lowercase, hyphenated, ≤ 40 chars).
+- **Commits:** one logical change per commit — commit per task as you
+  satisfy each check, not one mega-commit at the end. Subject in
+  imperative mood, < 70 chars. Body explains the *why*; the diff shows
+  the *what*. Never amend a published commit.
+- **PR:** title mirrors the issue title. Body must `Closes #<id>` and
+  link the spec and test plan comments. Open as **draft**; mark ready
+  only after the intended diff is pushed. The integrate sealer flips
+  ready and enables auto-merge; squash-merge is enforced there.
+
+##### Steps
 
 1. `slug=$(printf '%s' "<title>" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9-' | head -c 40)`
 2. `git switch -c "claude/${slug}-<id>"`
