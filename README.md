@@ -51,6 +51,9 @@ You bring the product idea and the budget. The factory does the floor work.
 - [`docs/architecture.md`](./docs/architecture.md) — components, domain model, workflows
 - [`docs/template-contents.md`](./docs/template-contents.md) — what the cloneable template will contain
 - [`docs/roadmap.md`](./docs/roadmap.md) — phased path from design → working template
+- [`docs/runbook.md`](./docs/runbook.md) — day-to-day operation
+- [`docs/testing.md`](./docs/testing.md) — verifying the factory works (smoke + negative tests)
+- [`docs/escalation-playbook.md`](./docs/escalation-playbook.md) — how to recover an escalated WorkItem
 - [`docs/adrs/`](./docs/adrs/) — architecture decision records
 
 ---
