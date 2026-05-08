@@ -69,7 +69,11 @@ flight, what each is doing, today's spend, and what failed and why.
 - [ ] Static control-room page generated from the ledger branch
 - [ ] Daily cost + throughput report posted as an issue / Slack message
 - [ ] Failure clustering (top reasons jobs fail this week)
-- [ ] Per-station latency / success rate
+- [x] Per-station latency / success rate — `scripts/factory/metrics.sh`
+      reads the ledger over a rolling window and prints a markdown or
+      JSON summary (runs, success/failure/escalated counts, success
+      rate, p50/p95 wall-seconds, tool calls). Smoke-tested by
+      `scripts/test/metrics-smoke.sh`.
 - [x] **Artifact snapshots in ledger Run records** — stations
       (`intake`, `spec`, `plan`, `qa`) persist the artefact body to
       `artifacts/YYYY/MM/DD/<run-id>.md` on `factory/ledger`
