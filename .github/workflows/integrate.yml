@@ -71,8 +71,8 @@ jobs:
           # Phase 2 will load this from .factory/policy.yml dynamically.
           gated_hits=$(gh pr diff "$PR" --name-only | grep -E '^(infra/|migrations/|\.github/workflows/|\.factory/policy\.yml$|\.claude/settings\.json$)' || true)
           if [[ -n "$gated_hits" ]]; then
-            gh pr comment "$PR" --body "Auto-merge sealer: PR touches gated paths, requires human review:
-$gated_hits"
+            body=$(printf 'Auto-merge sealer: PR touches gated paths, requires human review:\n%s\n' "$gated_hits")
+            gh pr comment "$PR" --body "$body"
             gh pr edit "$PR" --add-label "needs-human" --remove-label "stage:integrate"
             echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
