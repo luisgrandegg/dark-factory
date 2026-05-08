@@ -114,6 +114,9 @@ seed commit, clones it locally, and runs `setup.sh` for you. Teardown
 is a single `gh repo delete` when you're done. See the script's
 `--help` for flags.
 
+The full testing playbook (smoke test, negative tests per Phase 2
+guardrail) is in [`docs/testing.md`](./testing.md).
+
 ### Replace a bad PR
 
 If a PR opened by the factory is wrong in a way that can't be fixed by
