@@ -202,5 +202,6 @@ labels:
     - { name: "skill:dep-upgrade",   color: "c2e0c6", description: "Use the dep-upgrade skill to apply patch+minor dependency upgrades" }
     - { name: "skill:flake-triage",  color: "c2e0c6", description: "Use the flake-triage skill to rank flaky workflows nightly" }
     - { name: "skill:codemod",       color: "c2e0c6", description: "Use the codemod skill to apply a scripted transformation across many files" }
+    - { name: "skill:migration",     color: "c2e0c6", description: "Use the migration-generation skill to scaffold a database migration" }
     - { name: "flake:investigate",   color: "fef2c0", description: "Filed by flake-triage; a human should investigate" }
 
