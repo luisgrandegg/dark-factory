@@ -66,7 +66,11 @@ side-project repo.
 **Exit:** an operator can answer, in under a minute: how many WorkItems are in
 flight, what each is doing, today's spend, and what failed and why.
 
-- [ ] Static control-room page generated from the ledger branch
+- [x] Static control-room page generated from the ledger branch —
+      `scripts/factory/dashboard.sh` calls `metrics.sh` and
+      `failures.sh` and renders a self-contained HTML page
+      (default `.factory/dashboard/index.html`). Smoke-tested by
+      `scripts/test/dashboard-smoke.sh`.
 - [x] Daily cost + throughput report — `.github/workflows/daily-report.yml`
       runs `scripts/factory/metrics.sh` and `scripts/factory/failures.sh`
       against `factory/ledger` once a day (14:00 UTC, plus
