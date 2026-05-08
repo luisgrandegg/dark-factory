@@ -62,7 +62,7 @@ can retry safely.
 | Spec       | WorkItem          | Acceptance criteria, scope, risks   | Spec subagent       |
 | Plan       | Spec              | Test plan (executable checks)       | Plan subagent       |
 | Implement  | Task              | Branch + commits + draft PR         | Claude Code main    |
-| QA         | PR                | Review + test + scan results        | contract-check then code-review subagents |
+| QA         | PR                | Verdict on the test plan + path gates | contract-check subagent             |
 | Integrate  | Green PR          | Merged commit                       | GitHub Action       |
 | Deploy     | Merged commit     | Released artifact                   | Project-specific CD |
 
@@ -77,6 +77,32 @@ Workers are Claude Code sessions. Variants:
 
 Workers run in **isolated worktrees** to keep concurrent jobs from stomping on
 each other.
+
+#### Why no subjective code-review subagent in Phase 1
+
+An earlier draft of the QA station ran **contract-check** (mechanical:
+tests + CI + path gates) followed by **code-review** (subjective: "would
+a thoughtful senior reviewer be comfortable?"). We removed the second
+agent before Phase 1 shipped. The reasoning, recorded so it doesn't get
+re-litigated:
+
+- **Its only authority was escalation,** so its primary product was
+  pings to a human. A factory that pages a human even 10% of the time
+  it shouldn't gets its andon ignored within a week.
+- **It overlapped with cheaper, better tools.** Linters, type checkers,
+  formatters, and (Phase 2) secret scanners catch most of what the
+  prompt asked for, deterministically, in CI. Asking an LLM to spot
+  off-by-ones is the worst tradeoff: expensive, slow, worse than a
+  type system.
+- **The one mechanical thing it did well — scope-creep detection — is
+  cheap and lives in contract-check now** (path overlap with the
+  spec's *Out of scope* list, plus a size-threshold smell).
+- **It re-introduced subjectivity through a side door** the plan and
+  contract-check refactors had just closed.
+
+Phase 2 brings reviewers back when each has a deterministic trigger
+that does new work: **security-review** on PRs touching `infra/**` or
+`migrations/**`, **dependency-review** on lockfile changes, etc.
 
 ### 1.4 Control room
 
@@ -186,16 +212,17 @@ only when we hit limits.
    Claude Code with the test plan as the contract. The implement agent
    chooses its own approach, makes the checks green, and on completion
    opens a draft PR and moves to `qa`.
-5. **QA**: the foreman runs the QA station as two sub-runs with
-   deliberately asymmetric authority. **contract-check** is mechanical
-   — it runs the test plan's checks against the PR head, reads project
-   CI, and matches the diff against `policy.approvalGates`; it owns
-   the `pass`/`retry`/`wait` verdicts. If it returns `pass`, the
-   foreman runs **code-review**, which judges correctness, security,
-   and scope-creep concerns; it can only `approve` or escalate to a
-   human, never send the PR back to implement (that authority lives
-   with contract-check). Phase 2 will add a sibling `security-review`
-   subagent.
+5. **QA**: the foreman runs the **contract-check** subagent. It
+   runs the test plan's checks against a worktree on the PR head,
+   reads project CI, and matches the diff against
+   `policy.approvalGates` plus explicit out-of-scope paths from the
+   spec. Verdicts are mechanical — `pass`, `retry`, `wait`, or
+   `human-review` — never subjective. On `pass` the WorkItem moves
+   to `stage:integrate`. On `retry` it returns to `stage:implement`
+   with the failing commands quoted in the comment. Phase 1
+   intentionally ships **no subjective code-review subagent** (see
+   below); Phase 2 brings deterministic reviewers (security-review,
+   dependency-review) when they have a clear trigger.
 6. **Integrate**: if all green and no policy gate trips, mark PR ready and
    auto-merge. Move to `done`.
 7. **Deploy**: post-merge CD pipeline (project-specific).
