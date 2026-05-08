@@ -41,7 +41,11 @@ jobs: []
 # - id: nightly-flake-triage
 #   title: "Nightly flake triage"
 #   body: |
-#     Scan the last 24h of CI runs on main and rank the noisiest tests.
+#     Use the **flake-triage** skill (`.claude/skills/flake-triage/SKILL.md`)
+#     to rank workflows on the default branch by flake rate over the last
+#     24 hours. File one follow-up issue per top-3 offenders that exceed
+#     a 5% flake rate. See `docs/skills/flake-triage.md` for what humans
+#     should do with each follow-up.
 #   every: daily
 #   onHour: 5
-#   labels: ["stage:intake", "priority:p2", "factory:recurring"]
+#   labels: ["stage:intake", "priority:p2", "factory:recurring", "skill:flake-triage"]

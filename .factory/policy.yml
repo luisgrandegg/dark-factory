@@ -92,6 +92,7 @@ allowlist:
     - "gh api repos/:owner/:repo/issues*"
     - "gh api repos/:owner/:repo/pulls*"
     - "gh api repos/:owner/:repo/labels*"
+    - "gh api repos/:owner/:repo/actions*"
     - "scripts/factory/*"
     - "ls*"
     - "cat*"
@@ -198,5 +199,7 @@ labels:
   skills:
     # Per-skill labels. The implement station inspects these to pick the
     # right SKILL.md (under .claude/skills/<name>/) when working a WorkItem.
-    - { name: "skill:dep-upgrade", color: "c2e0c6", description: "Use the dep-upgrade skill to apply patch+minor dependency upgrades" }
+    - { name: "skill:dep-upgrade",   color: "c2e0c6", description: "Use the dep-upgrade skill to apply patch+minor dependency upgrades" }
+    - { name: "skill:flake-triage",  color: "c2e0c6", description: "Use the flake-triage skill to rank flaky workflows nightly" }
+    - { name: "flake:investigate",   color: "fef2c0", description: "Filed by flake-triage; a human should investigate" }
 

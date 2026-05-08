@@ -112,7 +112,18 @@ library of repeatable skills the orchestrator can choose from.
         failure, never edits source code or approval-gate paths.
   - [ ] Codemod
   - [ ] Migration generation
-  - [ ] Flake triage
+  - [x] Flake triage —
+        `.claude/skills/flake-triage/SKILL.md` (operational checklist),
+        `scripts/skills/flake-triage-rank.sh` (read-only rank script
+        that computes flake events at workflow granularity from
+        `gh api .../actions/runs`, mockable via `--from-fixture`),
+        20 cases in `scripts/test/flake-triage-rank-smoke.sh`,
+        `docs/skills/flake-triage.md` (long-form rationale),
+        `skill:flake-triage` + `flake:investigate` labels in policy,
+        `gh api .../actions*` allowlisted, and a
+        `nightly-flake-triage` example in `.factory/schedule.yml`.
+        Read-only by design: never edits source, tests, workflows,
+        or other PRs; only reports + files follow-up issues.
 - [x] Recurring jobs wired to `schedule.yml` —
       `.factory/schedule.yml` declares recurring WorkItem templates
       (hourly/daily/weekly/monthly cadence with UTC hour gating);
