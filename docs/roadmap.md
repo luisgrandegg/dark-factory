@@ -100,7 +100,7 @@ flight, what each is doing, today's spend, and what failed and why.
 **Exit:** the factory is more than just "implement an issue" — it has a
 library of repeatable skills the orchestrator can choose from.
 
-- [ ] Skills: dependency upgrade, codemod, migration generation, flake triage
+- [x] Skills: dependency upgrade, codemod, migration generation, flake triage
   - [x] Dependency upgrade —
         `.claude/skills/dep-upgrade/SKILL.md` (operational checklist),
         `scripts/skills/dep-upgrade-detect.sh` (ecosystem detector,
@@ -124,7 +124,19 @@ library of repeatable skills the orchestrator can choose from.
         pass, and re-runs the preview to verify idempotency.
         Approval-gate paths are excluded by the engine, not the
         spec.
-  - [ ] Migration generation
+  - [x] Migration generation —
+        `.claude/skills/migration-generation/SKILL.md` (operational
+        checklist), `scripts/skills/migration-detect.sh` (detects
+        Alembic / Django / Rails / Knex / raw-SQL),
+        `scripts/skills/migration-scaffold.sh` (writes one empty
+        migration per toolchain with the canonical filename,
+        location, and boilerplate),
+        31 cases in `scripts/test/migration-smoke.sh`,
+        `docs/skills/migration-generation.md` (long-form rationale),
+        `skill:migration` label in policy. Scaffold-only by design:
+        the body is left as a TODO for the human; every PR carries
+        `needs-human` so the integrate sealer never auto-merges; no
+        database connection from inside the factory.
   - [x] Flake triage —
         `.claude/skills/flake-triage/SKILL.md` (operational checklist),
         `scripts/skills/flake-triage-rank.sh` (read-only rank script
