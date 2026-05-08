@@ -10,6 +10,40 @@ system but takes more time, more Actions minutes, or more cleanup.
 | 2 — live read-only (~1 min) | one `gh` session | install drift: missing labels, stale lock, malformed `budget.json`, branches gone |
 | 3 — end-to-end (~5–15 min) | a real PR per test | the orchestrator loop and each Phase 2 guardrail under the conditions it's there to catch |
 
+## Quick start
+
+Run the whole Tier 3 negative-test suite from anywhere on your
+machine, no clone needed:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/luisgrandegg/dark-factory/main/scripts/test/run-remote.sh)
+```
+
+That clones dark-factory, seeds a fresh private repo
+(`dark-factory-tier3-<UTC-timestamp>`), and runs `scripts/test/tier3.sh`
+against it. The throwaway repo is left in place for inspection; the
+final lines of output include the `gh repo delete` command to tear it
+down.
+
+Forward flags to tier3.sh by appending after the curl one-liner:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/luisgrandegg/dark-factory/main/scripts/test/run-remote.sh) --filter hook
+bash <(curl -fsSL https://raw.githubusercontent.com/luisgrandegg/dark-factory/main/scripts/test/run-remote.sh) --with-smoke
+bash <(curl -fsSL https://raw.githubusercontent.com/luisgrandegg/dark-factory/main/scripts/test/run-remote.sh) --no-cleanup
+```
+
+If you've already cloned dark-factory, the equivalent two-step is:
+
+```bash
+scripts/seed-test-repo.sh --name dark-factory-test
+cd dark-factory-test
+scripts/test/tier3.sh
+```
+
+Read on for what each tier does, how to run a single test by hand, and
+how the smoke test (the one operator-mediated step) works.
+
 ## Where to run tests
 
 | Test                                        | Repo                                          |
@@ -102,6 +136,26 @@ If `doctor.sh` is green, your install is healthy.
 
 ## Tier 3 — end-to-end
 
+> **One-shot runner:** `scripts/test/tier3.sh` automates this whole
+> section except the smoke test. The recipes below are what it runs
+> internally — read them to understand a guardrail, or run one by hand
+> if you're debugging a specific failure. Each guardrail's `tier3.sh`
+> id (`hook`, `escalate`, `budget`, `gated-path`, `secret-scan`) is
+> tagged in its heading for cross-reference.
+>
+> ```bash
+> # full suite, automatic, in a throwaway repo:
+> scripts/seed-test-repo.sh --name dark-factory-test
+> cd dark-factory-test
+> scripts/test/tier3.sh
+>
+> # one test only:
+> scripts/test/tier3.sh --filter hook
+>
+> # also drive the operator-mediated smoke test:
+> scripts/test/tier3.sh --with-smoke
+> ```
+
 ### Smoke (always run this first)
 
 The cheapest end-to-end check is to re-run Phase 1's smoke test under
@@ -131,7 +185,7 @@ together.
 Run each in a throwaway repo (`seed-test-repo.sh`). Each is independent;
 order doesn't matter.
 
-#### 1. Approval gate (path-based)
+#### 1. Approval gate — `tier3.sh: gated-path`
 
 File an issue that *requires* an `infra/**` change:
 
@@ -149,7 +203,7 @@ Tick. Expected:
 - If you manually re-label to `stage:integrate`, `integrate.yml`
   comments and removes the label rather than merging.
 
-#### 2. Secret scan
+#### 2. Secret scan — `tier3.sh: secret-scan`
 
 File an issue, let the factory open the PR, then push a fake-secret
 commit to its branch:
@@ -174,7 +228,7 @@ sealer comments and adds `needs-human` instead of merging, even if
 After the test: `gh pr close <pr> --delete-branch`. The fake key is
 already in git history, but the throwaway repo will be deleted soon.
 
-#### 3. Budget kill-switch
+#### 3. Budget kill-switch — `tier3.sh: budget`
 
 Drop a per-WorkItem cap to 1 via PR (the policy.yml gate forces a
 manual merge — that's expected):
@@ -200,7 +254,7 @@ Tick twice. Expected on the second tick:
 - The issue moves to `stage:escalated + needs-human` with a
   structured comment.
 
-#### 4. Escalation script (direct invocation)
+#### 4. Escalation script — `tier3.sh: escalate`
 
 ```bash
 ID=$(gh issue list --state open --limit 1 --json number --jq '.[0].number')
@@ -212,7 +266,7 @@ gh issue view "$ID"
 Expected: previous `stage:*` removed, `stage:escalated + needs-human`
 added, structured comment posted.
 
-#### 5. Main-branch isolation
+#### 5. Main-branch isolation — `tier3.sh: hook`
 
 No factory needed:
 

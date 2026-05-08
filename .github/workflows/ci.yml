@@ -103,7 +103,7 @@ jobs:
       - name: shellcheck
         run: |
           sudo apt-get update -y && sudo apt-get install -y shellcheck
-          shellcheck -P scripts/factory -x scripts/factory/*.sh .claude/hooks/*.sh scripts/setup.sh scripts/doctor.sh scripts/seed-test-repo.sh scripts/test/tier3.sh
+          shellcheck -P scripts/factory -x scripts/factory/*.sh .claude/hooks/*.sh scripts/setup.sh scripts/doctor.sh scripts/seed-test-repo.sh scripts/test/tier3.sh scripts/test/run-remote.sh
       - name: validate JSON/YAML
         run: |
           python3 -c "import json; json.load(open('.claude/settings.json'))"
