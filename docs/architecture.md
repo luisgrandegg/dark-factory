@@ -62,7 +62,7 @@ can retry safely.
 | Spec       | WorkItem          | Acceptance criteria, scope, risks   | Spec subagent       |
 | Plan       | Spec              | Test plan (executable checks)       | Plan subagent       |
 | Implement  | Task              | Branch + commits + draft PR         | Claude Code main    |
-| QA         | PR                | Review + test + scan results        | Review subagents    |
+| QA         | PR                | Review + test + scan results        | contract-check then code-review subagents |
 | Integrate  | Green PR          | Merged commit                       | GitHub Action       |
 | Deploy     | Merged commit     | Released artifact                   | Project-specific CD |
 
@@ -186,8 +186,16 @@ only when we hit limits.
    Claude Code with the test plan as the contract. The implement agent
    chooses its own approach, makes the checks green, and on completion
    opens a draft PR and moves to `qa`.
-5. **QA**: in parallel, the foreman runs CI plus review subagents
-   (code-review, security-review). Aggregate verdict.
+5. **QA**: the foreman runs the QA station as two sub-runs with
+   deliberately asymmetric authority. **contract-check** is mechanical
+   — it runs the test plan's checks against the PR head, reads project
+   CI, and matches the diff against `policy.approvalGates`; it owns
+   the `pass`/`retry`/`wait` verdicts. If it returns `pass`, the
+   foreman runs **code-review**, which judges correctness, security,
+   and scope-creep concerns; it can only `approve` or escalate to a
+   human, never send the PR back to implement (that authority lives
+   with contract-check). Phase 2 will add a sibling `security-review`
+   subagent.
 6. **Integrate**: if all green and no policy gate trips, mark PR ready and
    auto-merge. Move to `done`.
 7. **Deploy**: post-merge CD pipeline (project-specific).

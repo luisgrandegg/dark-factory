@@ -22,7 +22,7 @@ until the queue is idle or you hit a stop condition.
 | `stage:spec`      | inline (this skill writes the spec comment directly)   |
 | `stage:plan`      | spawn the **plan** subagent                            |
 | `stage:implement` | the main session — open a worktree on `claude/<slug>`, follow the plan, push, open the PR |
-| `stage:qa`        | spawn the **review** subagent                          |
+| `stage:qa`        | spawn **contract-check** first; if it returns `pass`, spawn **code-review** as a sibling sub-run |
 | `stage:integrate` | no agent — the GitHub Action `integrate.yml` seals the merge once CI is green |
 | `stage:done`      | terminal                                               |
 | `stage:escalated` | terminal until a human acts                            |
@@ -116,12 +116,44 @@ Then run the station handler from the table above. **Pass `RUN_ID` to
 any subagent you spawn**; the subagent quotes it back into its artefact
 comment (the ledger and the comment cross-reference each other).
 
-#### intake / plan / qa
+#### intake / plan
 
 Spawn the corresponding subagent with the Agent tool. The subagent
 reads, writes its artefact comment, swaps labels, and prints a one-line
 JSON summary to stdout. Capture that summary; it tells you the next
 state and feeds the ledger.
+
+#### qa (two sub-runs)
+
+The QA station is split into two subagents with deliberately asymmetric
+authority:
+
+1. **contract-check** runs first. It is mechanical: it runs the test
+   plan's checks against a worktree on the PR head, reads project CI,
+   and matches the diff against `policy.approvalGates`. Verdicts:
+   `pass` / `retry` / `wait` / `human-review`. Its label swap (when it
+   returns `retry` or `wait`) is its own; the foreman does not override
+   it.
+2. **code-review** runs **only if** contract-check returned `pass`.
+   It reads the diff for correctness, security, and scope-creep
+   concerns. Verdicts: `approve` / `human-review` only — it cannot
+   send the PR back to implement (that authority lives with
+   contract-check). On `approve` it swaps `stage:qa` → `stage:integrate`;
+   on `human-review` it adds `needs-human` and leaves the label.
+
+Both subagents write their own ledger entries with `parentRunId` set
+to the QA station's Run id, so usage rolls up cleanly. Open the QA
+station Run record yourself before spawning either subagent:
+
+```
+QA_RUN_ID=$(scripts/factory/ledger-write.sh start \
+  --workitem <id> --station qa --agent skill:factory)
+```
+
+Then for each sub-run, spawn with `--parent "$QA_RUN_ID"`. When both
+return, end the QA Run with the aggregated status (success if
+code-review approved, failure if contract-check returned retry,
+escalated if either escalated).
 
 #### spec (inline)
 
