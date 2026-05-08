@@ -123,9 +123,12 @@ comment (the ledger and the comment cross-reference each other).
 #### intake / plan / qa
 
 Spawn the corresponding subagent with the Agent tool. The subagent
-reads, writes its artefact comment, swaps labels, and prints a one-line
-JSON summary to stdout. Capture that summary; it tells you the next
-state and feeds the ledger.
+reads, writes its artefact comment, snapshots the body to
+`artifacts/YYYY/MM/DD/<run-id>.md` on the ledger branch, swaps labels,
+and prints a one-line JSON summary to stdout. Capture that summary; it
+tells you the next state and feeds the ledger. Forward the summary's
+`artifact` path as `--artifact` when you call `ledger-write.sh end` so
+the Run record points to its snapshot.
 
 The QA station is **only** `contract-check` in Phase 1 — a mechanical
 verifier that runs the test plan's checks against a worktree on the
@@ -161,6 +164,16 @@ write the spec comment yourself, in this shape:
 
 _Run id: <RUN_ID>_
 ```
+
+Snapshot the same body to the ledger (the comment is mutable; the
+snapshot is the immutable audit trail):
+
+```
+SPEC_ARTIFACT=$(printf '%s' "$SPEC_BODY" | scripts/factory/artifact-write.sh \
+  --run-id "$RUN_ID" --workitem "$WORKITEM_ID" --kind spec)
+```
+
+Pass `--artifact "$SPEC_ARTIFACT"` to `ledger-write.sh end` in step 8.
 
 Then swap labels `stage:spec` → `stage:plan`.
 
@@ -228,6 +241,7 @@ scripts/factory/ledger-write.sh end \
   --tool-calls <n> --wall-seconds <n> \
   --from <prev stage label> --to <next stage label> \
   [--pr <n>] [--branch claude/...] [--files a,b,c] \
+  [--artifact <ledger-relative path>] \
   [--reason <controlled-vocab>]
 ```
 

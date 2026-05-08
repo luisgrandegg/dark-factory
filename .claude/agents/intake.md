@@ -31,11 +31,21 @@ issues and turn them into triaged WorkItems ready for the spec station.
    - `L`: cross-cutting; flag `needs-human` and recommend the spec station
      ask for clarification.
 5. **Post an intake artefact** as an issue comment using the template below.
-6. **Swap labels.** Atomic last step: remove `stage:intake` and any prior
+6. **Snapshot the artefact** to the ledger. Pipe the *exact* body you just
+   posted (without back-tick fences) into:
+   ```
+   scripts/factory/artifact-write.sh \
+     --run-id "$RUN_ID" --workitem "$WORKITEM_ID" --kind intake
+   ```
+   The script prints the ledger-relative path on stdout — capture it as
+   `ARTIFACT_PATH` and quote it back in your JSON summary. Comments stay
+   the canonical mutable surface; this snapshot is the immutable audit
+   trail (a re-edit of the comment doesn't rewrite history).
+7. **Swap labels.** Atomic last step: remove `stage:intake` and any prior
    `priority:*`, add the new `priority:*`, the classification flag (`bug`,
    `feature`, `chore`), and either `stage:spec` (normal) or `stage:rejected`
    (invalid). Use `gh issue edit`.
-7. **Stop.** Do not start the spec station yourself; the foreman picks it up
+8. **Stop.** Do not start the spec station yourself; the foreman picks it up
    on the next tick.
 
 ## Intake artefact template
@@ -73,7 +83,8 @@ _Run id: <RUN_ID>_
 When you finish, print **only** a one-line JSON summary to stdout:
 
 ```
-{"workItem": <id>, "classification": "...", "priority": "p2", "budget": "M", "next": "stage:spec"}
+{"workItem": <id>, "classification": "...", "priority": "p2", "budget": "M", "artifact": "<ARTIFACT_PATH>", "next": "stage:spec"}
 ```
 
-The foreman parses this to write the ledger entry and decide the next step.
+The foreman parses this to write the ledger entry (passing `artifact` as
+`--artifact` to `ledger-write.sh end`) and decide the next step.
