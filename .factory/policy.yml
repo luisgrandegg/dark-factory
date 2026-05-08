@@ -192,4 +192,5 @@ labels:
   factory:
     - { name: "factory:smoke",    color: "c5def5", description: "End-to-end smoke test" }
     - { name: "factory:lock-stolen", color: "ededed", description: "Recovered a stale lock" }
+    - { name: "factory:report",   color: "c5def5", description: "Factory daily / weekly report" }
 

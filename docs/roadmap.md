@@ -67,7 +67,10 @@ side-project repo.
 flight, what each is doing, today's spend, and what failed and why.
 
 - [ ] Static control-room page generated from the ledger branch
-- [ ] Daily cost + throughput report posted as an issue / Slack message
+- [x] Daily cost + throughput report — `.github/workflows/daily-report.yml`
+      runs `scripts/factory/metrics.sh` and `scripts/factory/failures.sh`
+      against `factory/ledger` once a day (14:00 UTC, plus
+      `workflow_dispatch`) and posts a `factory:report` issue.
 - [x] Failure clustering (top reasons jobs fail this week) —
       `scripts/factory/failures.sh` clusters Run records with status
       `failure` or `escalated` over a rolling window: top reasons (with
