@@ -1,0 +1,194 @@
+# Factory policy
+#
+# Bounds the factory: where it stores state, what it may touch, how much it
+# may spend, and which transitions are legal. The orchestrator and every
+# helper script reads this file. Edits to it should travel through PRs.
+#
+# Schema is described in docs/architecture.md §2.3.
+
+version: 1
+
+# --- State surfaces (ADR 0002) -------------------------------------------
+state:
+  # Mutable derived state: lock.json, budget.json, dashboard snapshots.
+  # Created as an orphan branch by scripts/setup.sh.
+  branch: factory/state
+
+ledger:
+  # Append-only run history, one JSON file per Run.
+  # Layout: runs/YYYY/MM/DD/<ulid>.json
+  branch: factory/ledger
+
+# --- Concurrency (ADR 0003) ----------------------------------------------
+concurrency:
+  # Max WorkItems with an active stage:* label other than queued/done/escalated.
+  maxConcurrency: 3
+
+  # Multi-session lock TTL. A session that crashes leaves the lock; the next
+  # tick steals it once expiresAt is in the past and logs factory:lock-stolen.
+  lockTtlMinutes: 10
+
+  # v1: implement station processes plan tasks sequentially on one branch.
+  # Phase 4 flips this; the plan agent must emit a linear plan until then.
+  parallelImplement: false
+
+# --- Budgets (ADR 0004) --------------------------------------------------
+#
+# Cost is measured in subscription usage (token/tool-call/wall-time), not USD.
+# The orchestrator refuses to start the next station if a cap is hit and
+# labels the WorkItem `escalated` with reason `budget`.
+budgets:
+  perWorkItem:
+    maxTokens: 500000          # null = unbounded; tokens may be unavailable
+    maxToolCalls: 400
+    maxWallMinutes: 60
+    maxRetries: 3
+  perDay:
+    maxTokens: 5000000
+    maxToolCalls: 4000
+    maxWallMinutes: 480
+  perStation:
+    intake:    { maxToolCalls: 30,  maxWallMinutes: 5 }
+    spec:      { maxToolCalls: 60,  maxWallMinutes: 10 }
+    plan:      { maxToolCalls: 120, maxWallMinutes: 15 }
+    implement: { maxToolCalls: 300, maxWallMinutes: 45 }
+    qa:        { maxToolCalls: 120, maxWallMinutes: 15 }
+
+# --- Tool allowlist ------------------------------------------------------
+#
+# Every agent runs with an explicit allowlist; no `*`. The list below is
+# the union of what stations may invoke; per-station narrowing happens in
+# each subagent's frontmatter.
+allowlist:
+  bash:
+    - "git status"
+    - "git diff*"
+    - "git log*"
+    - "git show*"
+    - "git fetch*"
+    - "git branch*"
+    - "git checkout*"
+    - "git switch*"
+    - "git add*"
+    - "git commit*"
+    - "git push origin claude/*"
+    - "git rev-parse*"
+    - "git ls-files*"
+    - "git ls-remote*"
+    - "gh auth status"
+    - "gh issue view*"
+    - "gh issue list*"
+    - "gh issue comment*"
+    - "gh issue edit*"
+    - "gh pr view*"
+    - "gh pr list*"
+    - "gh pr create*"
+    - "gh pr edit*"
+    - "gh pr comment*"
+    - "gh pr checks*"
+    - "gh pr ready*"
+    - "gh api repos/:owner/:repo/contents/*"
+    - "gh api repos/:owner/:repo/issues*"
+    - "gh api repos/:owner/:repo/pulls*"
+    - "gh api repos/:owner/:repo/labels*"
+    - "scripts/factory/*"
+    - "ls*"
+    - "cat*"
+    - "rg*"
+    - "grep*"
+    - "find*"
+    - "test*"
+  files:
+    # Paths the orchestrator may read. Writes to product code go through
+    # claude/<slug> branches; writes to state/ledger go via the GitHub API
+    # (orchestrator never holds a working copy of those branches).
+    read:
+      - "**/*"
+    write:
+      - "claude/**"
+      - ".factory/dashboard/**"  # dashboard generator output, on main via PR
+  mcp:
+    - "github"  # restricted to the configured repo by host config
+  deny:
+    # Never allowed under any circumstance. PreToolUse hook enforces.
+    - "git push --force*"
+    - "git push -f*"
+    - "git push origin main*"
+    - "git push origin master*"
+    - "git reset --hard*"
+    - "git clean -fd*"
+    - "git branch -D*"
+    - "rm -rf*"
+    - "gh auth login*"        # never overwrite operator credentials
+    - "gh auth logout*"
+
+# --- Approval gates (Phase 2 wires enforcement; Phase 1 records them) ----
+#
+# Patterns that require a human reviewer before merge. The integrate sealer
+# refuses to auto-merge a PR whose changed paths intersect any pattern here.
+approvalGates:
+  - pattern: "infra/**"
+    reviewer: human
+  - pattern: "migrations/**"
+    reviewer: human
+  - pattern: ".github/workflows/**"
+    reviewer: human
+  - pattern: ".factory/policy.yml"
+    reviewer: human
+  - pattern: ".claude/settings.json"
+    reviewer: human
+  - label: "release"
+    reviewer: human
+  - label: "needs-human"
+    reviewer: human
+
+# --- Stage machine -------------------------------------------------------
+#
+# Exactly one stage:* label per WorkItem at any time. Transitions are
+# encoded here; the orchestrator refuses moves not listed.
+stages:
+  initial: "stage:intake"
+  transitions:
+    "stage:intake":     ["stage:spec", "stage:rejected", "stage:escalated"]
+    "stage:spec":       ["stage:plan", "stage:escalated"]
+    "stage:plan":       ["stage:implement", "stage:escalated"]
+    "stage:implement":  ["stage:qa", "stage:escalated"]
+    "stage:qa":         ["stage:integrate", "stage:implement", "stage:escalated"]
+    "stage:integrate":  ["stage:done", "stage:escalated"]
+    "stage:queued":     ["stage:intake"]
+    "stage:done":       []
+    "stage:rejected":   []
+    "stage:escalated":  ["stage:intake", "stage:plan", "stage:implement", "stage:qa"]
+
+# --- Labels the factory expects to exist (created by setup.sh) -----------
+labels:
+  stages:
+    - { name: "stage:queued",     color: "ededed", description: "Waiting for capacity" }
+    - { name: "stage:intake",     color: "fbca04", description: "Triage in progress" }
+    - { name: "stage:spec",       color: "fbca04", description: "Spec being written" }
+    - { name: "stage:plan",       color: "fbca04", description: "Plan being written" }
+    - { name: "stage:implement",  color: "0e8a16", description: "Implementation underway" }
+    - { name: "stage:qa",         color: "0e8a16", description: "Review + checks" }
+    - { name: "stage:integrate",  color: "1d76db", description: "Auto-merge eligible" }
+    - { name: "stage:done",       color: "5319e7", description: "Merged and shipped" }
+    - { name: "stage:rejected",   color: "b60205", description: "Closed without work" }
+    - { name: "stage:escalated",  color: "b60205", description: "Andon pulled" }
+  flags:
+    - { name: "needs-human",      color: "d93f0b", description: "Human input required" }
+    - { name: "escalated",        color: "b60205", description: "Outside factory control" }
+  priority:
+    - { name: "priority:p0",      color: "b60205", description: "Drop everything" }
+    - { name: "priority:p1",      color: "d93f0b", description: "Top of queue" }
+    - { name: "priority:p2",      color: "fbca04", description: "Normal" }
+    - { name: "priority:p3",      color: "ededed", description: "When idle" }
+  factory:
+    - { name: "factory:smoke",    color: "c5def5", description: "End-to-end smoke test" }
+    - { name: "factory:lock-stolen", color: "ededed", description: "Recovered a stale lock" }
+
+# --- Models --------------------------------------------------------------
+#
+# Defaults; subagents may override in their own frontmatter.
+models:
+  default: claude-sonnet-4-6
+  planner: claude-opus-4-7
+  reviewer: claude-sonnet-4-6

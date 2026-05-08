@@ -27,17 +27,17 @@ could start building.
 with one trivial change (e.g. "add a hello-world script"), end-to-end via the
 factory.
 
-- [ ] `.claude/settings.json` with strict allowlist + SessionStart hook
-- [ ] `factory` skill + `/factory-tick` slash command (the orchestrator loop)
-- [ ] One subagent each: `intake`, `plan`, `review`
-- [ ] `.factory/policy.yml` with conservative defaults
-- [ ] Ledger format defined and written to the configured ledger branch
+- [x] `.claude/settings.json` with strict allowlist + SessionStart hook
+- [x] `factory` skill + `/factory-tick` slash command (the orchestrator loop)
+- [x] One subagent each: `intake`, `plan`, `review`
+- [x] `.factory/policy.yml` with conservative defaults
+- [x] Ledger format defined and written to the configured ledger branch
       (default `factory/ledger`, orphan; see ADR 0002)
-- [ ] `lock.json` (on the state branch) acquire/release wired into the tick loop
-- [ ] `.github/workflows/ci.yml` — project tests/lint on PRs (only)
-- [ ] `.github/workflows/integrate.yml` — auto-merge sealer on `stage:integrate`
-- [ ] `scripts/setup.sh` (minimum viable: labels + credential check, both hosts)
-- [ ] Smoke-test issue auto-filed by `setup.sh`
+- [x] `lock.json` (on the state branch) acquire/release wired into the tick loop
+- [x] `.github/workflows/ci.yml` — project tests/lint on PRs (only)
+- [x] `.github/workflows/integrate.yml` — auto-merge sealer on `stage:integrate`
+- [x] `scripts/setup.sh` (minimum viable: labels + credential check, both hosts)
+- [x] Smoke-test issue auto-filed by `setup.sh`
 
 Acceptance: clone the repo to a fresh GitHub account, run `setup.sh`, open
 Claude Code (web or local) and run `/factory-tick`, observe the smoke-test
