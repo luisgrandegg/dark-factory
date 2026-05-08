@@ -38,12 +38,17 @@ gh pr diff "$PR" --name-only > /tmp/changed-paths
 
 Run these in order; first hit short-circuits to `human-review`:
 
-- **Approval gates.** Match every changed path against the patterns in
-  `.factory/policy.yml` under `approvalGates`. Any hit → `human-review`
-  with reason `gated-path`. The integrate sealer also enforces this as
-  defence in depth, but the verdict shape lets the foreman move the
-  WorkItem to `stage:escalated + needs-human` immediately rather than
-  letting the sealer find it.
+- **Approval gates.** Use the helper:
+  ```
+  labels=$(gh pr view "$PR" --json labels --jq '[.labels[].name] | join(",")')
+  gh pr diff "$PR" --name-only \
+    | scripts/factory/check-gates.sh --labels "$labels"
+  ```
+  Any non-empty output → `human-review` with reason `gated-path` and the
+  hits quoted in the comment. The integrate sealer enforces the same
+  list as defence in depth, but emitting the verdict here lets the
+  foreman move the WorkItem to `stage:escalated + needs-human`
+  immediately rather than letting the sealer find it.
 - **Explicit out-of-scope paths.** Re-read the spec comment's
   **Out of scope** section. If any bullet looks like a path or glob
   (e.g. `infra/**`, `src/legacy/`), match changed paths against it.

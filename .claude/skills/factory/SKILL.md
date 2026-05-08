@@ -87,21 +87,25 @@ done** — finish what's in flight before starting new work.
 
 ### 6. Check budgets
 
-For the chosen WorkItem, fetch its prior runs from the ledger via
-`runs/by-workitem/<id>.jsonl` on the ledger branch:
+Run the kill-switch:
 
 ```
-gh api "repos/:owner/:repo/contents/runs/by-workitem/<id>.jsonl?ref=<ledger-branch>" \
-  | jq -r .content | base64 -d
+out=$(scripts/factory/budget-check.sh --workitem <id> --station <station>) || rc=$?
 ```
 
-Sum `usage.toolCalls`, `usage.wallSeconds`, retries. If any
-`policy.budgets.perWorkItem.*` cap is exceeded, transition the item to
-`stage:escalated` with `failureReason: budget` in the ledger and a
-comment explaining which cap tripped. Continue to step 8 (release lock).
+- Exit 0, stdout `ok` → continue to step 7.
+- Exit 2 → one or more caps tripped. The first stdout line is
+  `action=escalate-workitem` or `action=escalate-day`; the rest are
+  `cap=<name>:<used>/<limit>`. **Escalate via**
+  `scripts/factory/escalate.sh --workitem <id> --reason budget --detail "<caps>"`,
+  then continue to step 8 (release lock). For
+  `action=escalate-day`, also stop the tick loop entirely (step 10):
+  the day budget is shared, so no other WorkItem may proceed today.
 
-Also check the day-level rollup at `budget.json` on the state branch.
-Same response if that's exceeded — escalate, then release.
+The check reads per-WorkItem usage from
+`runs/by-workitem/<id>.jsonl` on the ledger branch and the per-day
+roll-up from `budget.json` on the state branch. Both surfaces are
+maintained automatically by `ledger-write.sh end`.
 
 ### 7. Run the station
 
