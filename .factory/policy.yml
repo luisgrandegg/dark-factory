@@ -78,6 +78,7 @@ allowlist:
     - "gh auth status"
     - "gh issue view*"
     - "gh issue list*"
+    - "gh issue create*"
     - "gh issue comment*"
     - "gh issue edit*"
     - "gh pr view*"
@@ -193,4 +194,5 @@ labels:
     - { name: "factory:smoke",    color: "c5def5", description: "End-to-end smoke test" }
     - { name: "factory:lock-stolen", color: "ededed", description: "Recovered a stale lock" }
     - { name: "factory:report",   color: "c5def5", description: "Factory daily / weekly report" }
+    - { name: "factory:recurring", color: "c5def5", description: "Filed by .factory/schedule.yml" }
 

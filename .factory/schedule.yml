@@ -1,0 +1,44 @@
+# Recurring factory jobs.
+#
+# Each job declares a recurring task that should be filed as a GitHub
+# issue on a schedule. The recurring-jobs.yml workflow runs hourly and
+# files the issue when due, updating schedule-state.json on the state
+# branch so the next tick knows the job already fired today/this week.
+#
+# Schema is documented in `.factory/schedule-schema.md`. Short version:
+#
+#   - id            unique stable slug; used as the key in schedule-state.json
+#   - title         issue title (the script appends the date for traceability)
+#   - body          issue body (markdown); the implement station reads this
+#   - every         hourly | daily | weekly | monthly
+#   - onHour        UTC hour at which daily/weekly/monthly jobs fire (default 13)
+#   - onDayOfWeek   monday..sunday — required when every: weekly
+#   - onDayOfMonth  1..28          — required when every: monthly
+#   - labels        labels to apply on the issue (must include exactly one stage:*)
+#   - enabled       false to keep the job in the file but skip it (default true)
+#
+# Examples below are commented out — uncomment and tailor for your repo.
+
+version: 1
+
+jobs: []
+
+# Examples:
+#
+# - id: weekly-deps
+#   title: "Dependency upgrade sweep"
+#   body: |
+#     Run the dependency-upgrade skill against the current lock files
+#     and open one PR per ecosystem. See docs/skills/dep-upgrade.md.
+#   every: weekly
+#   onDayOfWeek: monday
+#   onHour: 13
+#   labels: ["stage:intake", "priority:p3", "factory:recurring"]
+#
+# - id: nightly-flake-triage
+#   title: "Nightly flake triage"
+#   body: |
+#     Scan the last 24h of CI runs on main and rank the noisiest tests.
+#   every: daily
+#   onHour: 5
+#   labels: ["stage:intake", "priority:p2", "factory:recurring"]
