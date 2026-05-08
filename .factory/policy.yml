@@ -185,10 +185,3 @@ labels:
     - { name: "factory:smoke",    color: "c5def5", description: "End-to-end smoke test" }
     - { name: "factory:lock-stolen", color: "ededed", description: "Recovered a stale lock" }
 
-# --- Models --------------------------------------------------------------
-#
-# Defaults; subagents may override in their own frontmatter.
-models:
-  default: claude-sonnet-4-6
-  planner: claude-opus-4-7
-  reviewer: claude-sonnet-4-6

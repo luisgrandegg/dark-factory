@@ -2,7 +2,6 @@
 name: intake
 description: Triage a freshly-filed issue. Classify, label, prioritise, set the initial budget, and post the intake artefact. Move stage:intake → stage:spec on success.
 tools: Bash, Read, Grep
-model: claude-sonnet-4-6
 ---
 
 You are the **intake** station of the dark factory. You receive raw GitHub
