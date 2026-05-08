@@ -150,23 +150,33 @@ Then swap labels `stage:spec` → `stage:plan`.
 
 #### implement
 
-The main session does the work. Concretely:
+The main session does the work. The plan station did **not** prescribe
+files or tasks — it produced a **test plan** (a list of objective checks
+plus regression checks). The implement agent owns the strategy; the test
+plan is the contract.
+
+Concretely:
 
 1. `slug=$(printf '%s' "<title>" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9-' | head -c 40)`
 2. `git switch -c "claude/${slug}-<id>"`
-3. Read the plan comment. Execute its tasks **in order**. After each
-   task, run the test command from the plan's "Test strategy".
-4. `git add` only files inside the plan's task list. Commit. Push:
-   `git push -u origin claude/${slug}-<id>`.
-5. `gh pr create --draft --title "<title>" --body "<body>"` where the
-   body links the issue ("Closes #<id>") and references the spec/plan
-   comments.
-6. Comment on the issue with the PR number. Swap labels
+3. Read the test plan comment. Run every check **before** writing any
+   code: most should fail (red baseline). Regression checks should pass.
+4. Decide a strategy yourself. Make the smallest change that turns each
+   check green without breaking regression checks. Stay strictly inside
+   the test plan's "out of scope" boundary.
+5. After each meaningful change, re-run the relevant check(s). When all
+   primary checks pass and all regression checks still pass, commit per
+   logical change. Push: `git push -u origin claude/${slug}-<id>`.
+6. `gh pr create --draft --title "<title>" --body "<body>"` where the
+   body links the issue ("Closes #<id>"), references the spec and test
+   plan comments, and lists each check with its final status.
+7. Comment on the issue with the PR number. Swap labels
    `stage:implement` → `stage:qa`.
 
-If a task fails (test red) and retries are below `budgets.perWorkItem.maxRetries`,
-log the Run as `failure` with `failureReason: ci-failed` and leave the
-item in `stage:implement` for the next tick. Otherwise escalate.
+If checks stay red after a reasonable attempt and retries are below
+`budgets.perWorkItem.maxRetries`, log the Run as `failure` with
+`failureReason: ci-failed` and leave the item in `stage:implement` for
+the next tick. Otherwise escalate.
 
 #### integrate
 

@@ -60,7 +60,7 @@ can retry safely.
 | ---------- | ----------------- | ----------------------------------- | ------------------- |
 | Intake     | Raw issue / signal| Triaged + labelled WorkItem         | Triage subagent     |
 | Spec       | WorkItem          | Acceptance criteria, scope, risks   | Spec subagent       |
-| Plan       | Spec              | Task list with file pointers        | Plan subagent       |
+| Plan       | Spec              | Test plan (executable checks)       | Plan subagent       |
 | Implement  | Task              | Branch + commits + draft PR         | Claude Code main    |
 | QA         | PR                | Review + test + scan results        | Review subagents    |
 | Integrate  | Green PR          | Merged commit                       | GitHub Action       |
@@ -178,10 +178,14 @@ only when we hit limits.
    `spec`.
 2. **Spec**: agent reads the issue + linked context, writes acceptance
    criteria and explicit out-of-scope items as a comment. Move to `plan`.
-3. **Plan**: agent surveys the codebase (Explore), produces a task list with
-   file:line pointers and a test strategy. Move to `implement`.
-4. **Implement**: foreman creates a worktree on `claude/<slug>`, spawns Claude
-   Code with the task list. On completion, opens a draft PR and moves to `qa`.
+3. **Plan**: agent translates the spec's acceptance criteria into a **test
+   plan** — a list of objective, executable checks plus regression checks.
+   It does not name files or prescribe a strategy; that's the implement
+   agent's job. Move to `implement`.
+4. **Implement**: foreman creates a worktree on `claude/<slug>`, spawns
+   Claude Code with the test plan as the contract. The implement agent
+   chooses its own approach, makes the checks green, and on completion
+   opens a draft PR and moves to `qa`.
 5. **QA**: in parallel, the foreman runs CI plus review subagents
    (code-review, security-review). Aggregate verdict.
 6. **Integrate**: if all green and no policy gate trips, mark PR ready and
