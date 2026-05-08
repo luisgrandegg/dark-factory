@@ -111,9 +111,21 @@ Verdicts:
 - All checks green → `pass`.
 - Any check red → `retry`.
 
-### 4. Comment + label
+### 4. Comment + snapshot + label
 
-Post the comment in the template below. Then swap labels per verdict:
+Post the comment in the template below, then snapshot the same body to
+the ledger:
+
+```
+scripts/factory/artifact-write.sh \
+  --run-id "$RUN_ID" --workitem "$WORKITEM_ID" --kind qa
+```
+
+Capture the printed path as `ARTIFACT_PATH` and quote it in your JSON
+summary. The comment may be edited later; the snapshot is what audit
+replay reads.
+
+Then swap labels per verdict:
 
 - `pass` → remove `stage:qa`, add `stage:integrate`. The integrate
   workflow takes over from there.
@@ -162,5 +174,5 @@ _Run id: <RUN_ID>_
 ## Output
 
 ```
-{"workItem": <id>, "pr": <pr>, "verdict": "pass|retry|wait|human-review", "checksRun": <int>, "checksRed": <int>}
+{"workItem": <id>, "pr": <pr>, "verdict": "pass|retry|wait|human-review", "checksRun": <int>, "checksRed": <int>, "artifact": "<ARTIFACT_PATH>"}
 ```

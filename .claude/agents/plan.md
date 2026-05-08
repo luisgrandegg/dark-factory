@@ -40,7 +40,15 @@ Why this shape:
    "out of scope" and "risks" sections feed these. Regression coverage
    is part of the contract.
 5. **Post a test plan comment** in the template below.
-6. **Swap labels.** Remove `stage:plan`, add `stage:implement`. If the
+6. **Snapshot the artefact.** Pipe the *exact* body you just posted into:
+   ```
+   scripts/factory/artifact-write.sh \
+     --run-id "$RUN_ID" --workitem "$WORKITEM_ID" --kind plan
+   ```
+   Capture the printed ledger path as `ARTIFACT_PATH` and quote it in
+   your JSON summary. The comment is mutable; the snapshot is what
+   replay reads.
+7. **Swap labels.** Remove `stage:plan`, add `stage:implement`. If the
    spec is too thin to derive checks from (e.g. the acceptance criteria
    are subjective or missing), instead add `stage:escalated` and
    `needs-human` with a comment listing what's missing.
@@ -95,5 +103,5 @@ _Run id: <RUN_ID>_
 After posting the comment and swapping labels, print one line of JSON:
 
 ```
-{"workItem": <id>, "checks": <int>, "next": "stage:implement"}
+{"workItem": <id>, "checks": <int>, "artifact": "<ARTIFACT_PATH>", "next": "stage:implement"}
 ```

@@ -70,16 +70,13 @@ flight, what each is doing, today's spend, and what failed and why.
 - [ ] Daily cost + throughput report posted as an issue / Slack message
 - [ ] Failure clustering (top reasons jobs fail this week)
 - [ ] Per-station latency / success rate
-- [ ] **Artifact snapshots in ledger Run records** — when a station closes
-      a Run, persist the artifact body (spec, test plan, contract-check
-      verdict) into `artifacts/<run-id>.md` on `factory/ledger`, or inline
-      on the Run record. GitHub comments stay the canonical mutable
-      surface; the snapshot is the immutable audit trail. Solves
-      point-in-time replay ("what did plan see when it produced this test
-      plan?") without adding a new storage surface — uses the ledger's
-      existing append-only semantics. Trigger to actually build it: the
-      first time a retrospective script wants to ask that question and
-      can't, because someone edited a comment after the fact.
+- [x] **Artifact snapshots in ledger Run records** — stations
+      (`intake`, `spec`, `plan`, `qa`) persist the artefact body to
+      `artifacts/YYYY/MM/DD/<run-id>.md` on `factory/ledger`
+      via `scripts/factory/artifact-write.sh`, and the closing
+      `ledger-write.sh end --artifact <path>` records the path in
+      `artifacts.snapshot`. GitHub comments stay the canonical mutable
+      surface; the snapshot is the immutable audit trail.
 
 ---
 

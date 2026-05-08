@@ -24,7 +24,7 @@ mode="${1:-}"; shift || true
 workitem=""; station=""; agent=""; parent=""
 id=""; status=""; reason=""; tool_calls=0; wall_seconds=0
 label_from=""; label_to=""
-files_touched=""; pr=""; branch_ref=""
+files_touched=""; pr=""; branch_ref=""; artifact_path=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -42,6 +42,7 @@ while [[ $# -gt 0 ]]; do
     --pr)       pr="$2"; shift 2 ;;
     --branch)   branch_ref="$2"; shift 2 ;;
     --files)    files_touched="$2"; shift 2 ;;  # comma-separated
+    --artifact) artifact_path="$2"; shift 2 ;;  # ledger-relative artifact snapshot path
     *) die "unknown arg: $1" ;;
   esac
 done
@@ -78,9 +79,9 @@ now=$(iso_now)
 doc=$(python3 - "$mode" "$id" "$workitem" "$station" "$agent" "$host" "$session_id" \
                  "$parent" "$status" "$reason" "$tool_calls" "$wall_seconds" \
                  "$label_from" "$label_to" "$pr" "$branch_ref" "$files_touched" \
-                 "$now" "$existing_doc" <<'PY'
+                 "$artifact_path" "$now" "$existing_doc" <<'PY'
 import json, sys
-mode, id, wi, station, agent, host, sess, parent, status, reason, tc, ws, lf, lt, pr, br, files, now, existing = sys.argv[1:]
+mode, id, wi, station, agent, host, sess, parent, status, reason, tc, ws, lf, lt, pr, br, files, artifact, now, existing = sys.argv[1:]
 try:
     base = json.loads(existing) if existing.strip() else {}
 except Exception:
@@ -99,7 +100,8 @@ doc = {
     "status":     base.get("status", "running"),
     "failureReason": base.get("failureReason"),
     "artifacts": base.get("artifacts", {
-        "filesTouched": [], "branch": None, "pr": None, "comments": []
+        "filesTouched": [], "branch": None, "pr": None, "comments": [],
+        "snapshot": None,
     }),
     "usage": base.get("usage", {
         "tokensIn": None, "tokensOut": None, "wallSeconds": 0,
@@ -107,6 +109,7 @@ doc = {
     }),
     "labelTransition": base.get("labelTransition"),
 }
+doc["artifacts"].setdefault("snapshot", None)
 if mode == "start":
     doc["status"] = "running"
     doc["startedAt"] = now
@@ -125,6 +128,8 @@ else:
     if br: doc["artifacts"]["branch"] = br
     if files:
         doc["artifacts"]["filesTouched"] = [f for f in files.split(",") if f]
+    if artifact:
+        doc["artifacts"]["snapshot"] = artifact
 print(json.dumps(doc, indent=2))
 PY
 )
