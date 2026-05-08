@@ -110,7 +110,20 @@ library of repeatable skills the orchestrator can choose from.
         example in `.factory/schedule.yml`. Conservative-by-default:
         patch+minor only, one PR per ecosystem, hard-reset on test
         failure, never edits source code or approval-gate paths.
-  - [ ] Codemod
+  - [x] Codemod —
+        `.claude/skills/codemod/SKILL.md` (operational checklist),
+        `scripts/skills/codemod-run.sh` (spec-driven driver with the
+        `regex` engine fully implemented and `comby`/`ast-grep`/
+        `jscodeshift` recognised but stubbed),
+        28 cases in `scripts/test/codemod-smoke.sh`,
+        `docs/skills/codemod.md` (long-form rationale),
+        `skill:codemod` label in policy. Spec-driven and
+        threshold-gated: a JSON spec on the WorkItem names engine,
+        include/exclude globs, transform, and size thresholds. The
+        driver always previews first, only writes after thresholds
+        pass, and re-runs the preview to verify idempotency.
+        Approval-gate paths are excluded by the engine, not the
+        spec.
   - [ ] Migration generation
   - [x] Flake triage —
         `.claude/skills/flake-triage/SKILL.md` (operational checklist),
