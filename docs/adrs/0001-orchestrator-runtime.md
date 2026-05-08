@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-05-08
+- **Supersedes:** —
 
 ## Context
 
@@ -9,72 +10,126 @@ The foreman has to: pick up new WorkItems, route them through stations, spawn
 agents, enforce budgets, retry on failure, and surface results. We need a host
 to actually run that loop.
 
-The candidates we considered:
+Initial framing considered:
 
-1. **GitHub Actions only.** Each station is a workflow; transitions are driven
-   by labels and `workflow_dispatch`. State lives in the repo.
-2. **Long-running process** (Node/Python service on a small VM or container).
-   Holds an in-memory queue, drives stations via the GitHub API, exposes a
-   live dashboard.
-3. **Hybrid.** Actions handle the per-event work (intake, QA, integrate);
-   a thin scheduler somewhere else pokes the queue when nothing has happened
-   for a while.
+1. **GitHub Actions only.** Each station is a workflow; transitions are
+   driven by labels and `workflow_dispatch`.
+2. **Long-running process** (Node/Python service on a VM).
+3. **Claude Code session as orchestrator** — the foreman *is* a Claude Code
+   session; stations are subagents/skills it spawns; state lives in the repo.
 
 Forces:
 
-- The whole point of the template is **clone-and-go**. Anything that requires
-  hosting infra fights that goal.
+- The whole point of the template is **clone-and-go**. Anything that
+  requires hosting infra fights that goal.
+- Operating cost matters. A side-project factory that burns Anthropic API
+  spend on every event plus Actions minutes per workflow run will be
+  abandoned within a week. The user already pays for Claude Code; we should
+  ride that subscription instead of adding per-call API spend on top.
 - We want a complete audit trail, replayable from the repo alone.
 - Concurrency is modest (single-digit WorkItems in flight for v1).
 - Live dashboards are nice, but Phase 3 — not Phase 1.
-- We are explicitly stack-agnostic; we do not want to make the user adopt a
-  particular runtime to host the orchestrator.
+- The factory must tolerate the operator closing their laptop. It does
+  **not** have to make progress while the laptop is closed.
 
 ## Decision
 
-**v1 runs entirely on GitHub Actions.** Each workstation is a workflow keyed
-off labels (`stage:spec`, `stage:plan`, `stage:implement`, `stage:qa`,
-`stage:integrate`) plus the natural GitHub events (`issues`, `pull_request`).
-A scheduled `tick.yml` workflow (every ~5 min) handles items that need
-nudging (retry timers, stuck states).
+**The orchestrator is a Claude Code session.** It is portable across two
+hosts, and the implementation must support both:
 
-The "foreman" is the union of these workflows plus the policy file in
-`.factory/policy.yml`. There is no separate process.
+- **Claude Code on the web** — a long-lived background session subscribed to
+  the repo's PR / issue activity. It wakes on events and ticks the queue.
+  This is the "lights-out" mode.
+- **Local Claude Code CLI** — the operator opens their laptop, runs
+  `/factory-tick` (or `/factory-run`), and the session advances the queue
+  until it stalls, then exits. This is the "operator on shift" mode.
 
-If and when v1 hits the wall — needs sub-minute reaction time, fan-out beyond
-the Actions concurrency limits, or a live operator dashboard — we'll write a
-follow-up ADR introducing a long-running process and migrate. The state model
-(see ADR 0002) is designed so that move is non-breaking.
+Both modes execute the same code: a `factory` skill plus a slash command
+that drives the loop. Switching hosts is a matter of where the session is
+running, not what it does.
+
+Cost shape: orchestrator and subagent invocations consume the operator's
+Claude Code subscription, not the Anthropic API. We do not call the API
+directly from the factory.
+
+GitHub Actions are used **sparingly**, only for things that genuinely must
+run server-side without a Claude Code session present:
+
+- CI: tests, lint, type-check on PR commits (the project's own pipeline).
+- Auto-merge sealing: a tiny workflow that flips merge state once a PR has
+  the `stage:integrate` label and all checks are green.
+- Optional: a webhook → Claude Code on the web nudge, if/when that
+  integration is exposed.
+
+No "intake.yml", "plan.yml", "implement.yml", or "qa.yml" workflows. Those
+stations run inside the orchestrator session.
+
+### The loop
+
+A single `factory-tick` invocation does, roughly:
+
+1. Read state: pull the issues + PRs filtered by `stage:*` labels, read the
+   last few entries of `.factory/runs/`.
+2. Pick the highest-priority actionable WorkItem honouring concurrency
+   (ADR 0003).
+3. Open a Run ledger entry (ADR 0004).
+4. Spawn the station's subagent / skill.
+5. On completion: update the WorkItem's labels, post the artefact comment,
+   patch the ledger entry, commit `.factory/runs/`.
+6. Loop until: queue empty, budget hit, or operator interrupts.
+
+In web mode, the loop sleeps between ticks and is woken by PR-activity
+subscriptions. In local mode, the loop runs straight through and the
+session ends when the queue drains.
+
+### Re-entrancy
+
+Because the state of the factory is fully in the repo (ADR 0002), any
+session — web or local — can pick up where another left off. We treat the
+orchestrator as **disposable**: kill the session, start a new one, no data
+loss. Concurrency between two simultaneous orchestrator sessions is handled
+by ADR 0003.
 
 ## Consequences
 
 Positive:
 
-- "Use this template" produces a working factory with no extra hosting.
-- Every transition is a workflow run, which is already audited, retryable,
-  and visible in the GitHub UI.
-- Secrets management is GitHub Environments — no parallel system.
-- Per-job concurrency is solved by Actions' `concurrency:` keys.
+- **No Anthropic API spend for the factory itself** — orchestrator and
+  subagent calls live inside the user's Claude Code subscription.
+- **No Actions minutes for orchestration** — only for CI, which the user
+  was already going to pay for.
+- "Use this template" produces a working factory with no extra hosting:
+  open Claude Code, run `/factory-tick`.
+- The web/local split gives a graceful degradation path: lights-out when
+  it's working, lights-on when the operator wants to babysit.
+- Faster reaction time than Actions cold-starts; the session is already
+  warm.
 
 Negative / accepted costs:
 
-- Cold-start latency: each station hop pays workflow startup cost (~10-30s).
-  Acceptable for v1.
-- Live dashboards are out of reach until Phase 3; the control room is a
-  static page rebuilt by `report.yml`.
-- The 5-minute `tick` granularity is the worst-case reaction time for stuck
-  items.
-- Workflow concurrency caps and minute-budget become operational constraints
-  the runbook has to call out.
+- **No automatic progress while no session is running.** If the web session
+  is paused and nobody opens the laptop, work just queues up. Acceptable
+  per the user's statement that "human opens the laptop and starts the
+  factory" is fine for v1.
+- The state model has to be bullet-proof — there is no in-memory queue. Two
+  sessions that race must converge. ADR 0003 handles this.
+- We lose the per-event audit trail that Actions runs give for free. The
+  Run ledger (ADR 0002, 0004) replaces it.
+- We depend on Claude Code session features (subagents, skills, PR-activity
+  subscriptions for the web case). When those interfaces change, the
+  orchestrator changes.
+- Live dashboards remain out of reach until Phase 3. The static control
+  room is regenerated at the start of each tick.
 
 ## Alternatives considered
 
-- **Long-running process** — rejected for v1. It buys live dashboards and
-  finer scheduling at the cost of every clone needing hosting. Revisit when
-  Phase 3 demands it.
-- **Hybrid** — rejected for v1 as premature complexity. We'd rather have a
-  clean Actions-only baseline and graduate cleanly than start with two
-  systems to keep in sync.
-- **Claude Code background agents as orchestrator** — interesting, but
-  couples the orchestrator to a single worker runtime and makes durability
-  harder. Workers run inside Claude Code; the orchestrator should not.
+- **GitHub Actions only.** Rejected: every station hop pays Actions cold
+  start + Anthropic API tokens. For a hobby-scale factory the recurring
+  cost dominates the value. Also requires writing six near-identical
+  workflows.
+- **Long-running process on a VM.** Rejected for v1: requires the user to
+  host something, undermines clone-and-go. Reconsider in a later ADR if
+  Phase 3's live dashboard demands it.
+- **Hybrid Actions + session.** Considered. Rejected as a starting point:
+  two systems to keep in sync. The minimal Actions footprint above (CI +
+  merge-seal) is small enough not to count as "hybrid orchestration".

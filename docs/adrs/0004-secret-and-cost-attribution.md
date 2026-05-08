@@ -5,111 +5,149 @@
 
 ## Context
 
-The factory spends real money (Anthropic API calls, optional MCP services)
-and handles real secrets (`ANTHROPIC_API_KEY`, GitHub tokens, project secrets
-the user wires in). Two related problems:
+The factory handles real secrets (a GitHub token for write operations,
+optional MCP credentials, project-specific deploy creds the user wires in)
+and consumes a metered resource — Claude Code subscription usage rather
+than direct API spend, after ADR 0001. Two related problems:
 
 1. **Secret scoping.** Which station gets which secret, how it's injected,
    and how we keep secrets out of the run ledger and PR diffs.
-2. **Cost attribution.** Every dollar spent should be tied to a specific Run
-   on a specific WorkItem so budgets work and the dashboard means anything.
+2. **Cost attribution.** Every unit of work should be tied to a specific
+   Run on a specific WorkItem so budgets work and the dashboard means
+   anything — even though "cost" is now measured in subscription usage,
+   not USD.
 
 Forces:
 
-- We chose Actions as the runtime (ADR 0001), so GitHub Environments are the
-  natural secret store.
-- Workers are Claude Code sessions invoked via the GitHub Action (and, later,
-  the CLI). The Action exposes usage data; we have to capture it before the
-  run ends.
-- The run ledger lives in the repo (ADR 0002). Anything that lands there is
-  permanently auditable — and permanently leaked if it contains a secret.
-- Budgets are enforced per-WorkItem and per-day; the foreman needs a number
-  it can compare against the cap, in near-real time.
+- The orchestrator is a Claude Code session running either on the web or
+  on the operator's laptop (ADR 0001). There is no Actions runner whose
+  Environments we can use to scope secrets to a station.
+- The orchestrator does not call the Anthropic API. All inference happens
+  through Claude Code's session, billed against the subscription. We can't
+  read a per-call USD figure the way the GitHub Action exposes one.
+- The run ledger lives in the repo (ADR 0002). Anything that lands there
+  is permanently auditable — and permanently leaked if it contains a
+  secret.
+- Budgets are enforced per-WorkItem and per-day; the foreman needs a
+  number it can compare against the cap, in near-real time.
 
 ## Decision
 
 ### Secrets
 
-- **One Environment per blast radius**, not per station. v1 ships three:
-  - `factory-read` — read-only access (intake, spec, plan, QA review).
-    Carries `ANTHROPIC_API_KEY` and a read-scoped `GITHUB_TOKEN`.
-  - `factory-write` — branch + PR write. Carries the same plus a
-    write-scoped token. Used by implement and integrate.
-  - `factory-deploy` — anything that touches prod. Empty in v1; users wire
-    in deploy creds here. Required reviewers turned **on** by default.
-- **Secrets are referenced, never echoed.** Hooks block any tool call whose
-  argv contains the literal value of a known secret env var. The PreToolUse
-  hook also redacts before logging.
-- **The run ledger never contains secret values.** The artifact field stores
-  diffs and file lists, not raw command output. A small allowlist of
-  environment variable *names* (not values) may be recorded for debugging.
-- **Rotation is a `doctor.sh` action.** Doctor checks secret age via the
-  GitHub API and warns over a threshold (default 90 days).
+We move from "Environments per blast radius" to "credentials sourced from
+the host, scoped per call site". Three blast-radius tiers remain — what
+changes is where they come from.
+
+| Tier              | Used by                    | Local CLI host                      | Web host                             |
+| ----------------- | -------------------------- | ----------------------------------- | ------------------------------------ |
+| `factory-read`    | intake, spec, plan, QA     | `gh auth` (read scope) + repo files | Web session's GitHub integration     |
+| `factory-write`   | implement, integrate       | `gh auth` (write scope)             | Web session's GitHub integration     |
+| `factory-deploy`  | deploy / prod-touching ops | Operator-supplied env vars          | GitHub Environment with reviewers on |
+
+Rules that hold across both hosts:
+
+- **Secrets are referenced, never echoed.** A PreToolUse hook blocks any
+  tool call whose argv contains the literal value of a known secret env
+  var, and redacts before logging.
+- **The run ledger never contains secret values.** The artefact field
+  stores diffs and file lists, not raw command output. A small allowlist
+  of env-var *names* (not values) may be recorded.
+- **No `ANTHROPIC_API_KEY` in the factory.** Inference is via the user's
+  Claude Code session. If a future feature needs direct API access, it
+  comes with its own ADR.
+- **Deploy creds stay out of the orchestrator session.** Deploy steps run
+  in a constrained context: a small GitHub Action triggered by the
+  `stage:integrate` label, with `factory-deploy` Environment + required
+  reviewers. The orchestrator session never sees those secrets.
+- **Rotation is a `doctor.sh` action.** Doctor checks token age (where
+  visible) and warns over a threshold (default 90 days).
 - **Local development** uses a `.env.local` file (gitignored) loaded by
   `scripts/setup.sh` when present. The same hook-based redaction applies.
 
 ### Cost attribution
 
-Each Run is the unit of attribution. The implement, plan, spec, intake, and
-QA workflows all follow the same shape:
+"Cost" in v1 is **subscription usage**, not USD. Each Run records the
+session-reported usage figures available at the time. The unit of
+attribution is still the Run.
 
-1. **Start:** generate a ULID, write `.factory/runs/<...>/<ulid>.json` with
-   `status: "running"`, `workItemId`, `station`, `startedAt`.
-2. **Invoke** the Claude Code Action / CLI with `--run-id <ulid>` so the
-   value is available to subagents that want to nest sub-runs.
-3. **End:** capture the Action's reported `tokensIn` / `tokensOut` /
-   `cost-usd` outputs and patch the ledger entry to `success` / `failure` /
-   `escalated`. End time, failure reason, files-touched, PR/comment refs go
-   in the same patch.
-4. **Roll up:** the `tick.yml` workflow sums today's runs and writes
-   `.factory/state/budget.json` (derived, see ADR 0002). The next station
-   workflow refuses to start if the cap is hit and labels the WorkItem
-   `escalated` with reason `budget`.
+Every station, regardless of which session is driving it, follows the
+same shape:
 
-Cost numbers come from the Action's reported usage. If a run uses a runtime
-that doesn't report usage (e.g. a future MCP-only run), we record `cost:
-null` and the budget code treats that station as opaque — operators see the
-gap in the dashboard rather than getting a false zero.
+1. **Start:** generate a ULID. Write
+   `.factory/runs/YYYY/MM/DD/<ulid>.json` with
+   `{ status: "running", workItemId, station, host, sessionId, startedAt }`.
+2. **Invoke** the station subagent / skill, threading `runId` so any
+   sub-runs can record `parentRunId`.
+3. **Capture usage.** Read whatever the Claude Code session exposes:
+   - Token counts (in / out) for the run, when available.
+   - Wall-clock time.
+   - Tool-call counts (a useful proxy when token data is missing).
+4. **End:** patch the ledger entry with `endedAt`, `status`, files
+   touched, PR/comment refs, and a `usage` block:
 
-For sub-runs (a main session that spawns a subagent), the subagent emits its
-own ledger entry tagged with `parentRunId`. Roll-ups sum the leaves to avoid
-double-counting.
+   ```
+   usage:
+     tokensIn:    int | null
+     tokensOut:   int | null
+     wallSeconds: int
+     toolCalls:   int
+     costUsd:     null   # populated only if a future runtime exposes it
+   ```
+
+5. **Roll up:** at the start of each tick, the orchestrator sums the
+   day's runs and writes `.factory/state/budget.json` (derived; ADR 0002).
+   The next station refuses to start if the cap is hit and labels the
+   WorkItem `escalated` with reason `budget`.
+
+Budgets in `policy.yml` are expressed in the same units the ledger
+captures: `maxTokensPerWorkItem`, `maxToolCallsPerDay`,
+`maxWallMinutesPerDay`. When token data is unavailable, `toolCalls` and
+`wallSeconds` are the binding caps.
+
+For sub-runs (a station agent that spawns a subagent), the subagent
+emits its own ledger entry tagged with `parentRunId`. Roll-ups sum the
+leaves to avoid double-counting.
 
 ## Consequences
 
 Positive:
 
-- Three Environments give us escalating gates without a station-by-station
-  matrix to maintain.
-- Budgets are enforced from a single derived file — easy to test, easy to
-  inspect.
-- Every dollar has a Run, every Run has a WorkItem, every WorkItem has an
-  issue. The audit chain is complete.
-- The `cost: null` convention surfaces measurement gaps instead of hiding
-  them.
+- No per-station Environment matrix to maintain — credentials follow the
+  host the session is running on.
+- Removing `ANTHROPIC_API_KEY` from the factory shrinks the secret
+  surface meaningfully. The most expensive credential is no longer
+  present at all.
+- Deploy isolation is stronger: deploy creds live in an Action with
+  required reviewers, not in any orchestrator session.
+- The `usage` block captures what we *can* measure and is honest about
+  what we can't (`costUsd: null` is allowed). Operators see the gap in
+  the dashboard rather than getting a false zero.
+- Every Run still has a WorkItem; every WorkItem still has an issue.
+  The audit chain is complete even without USD figures.
 
 Negative / accepted costs:
 
-- Cost numbers depend on what the Action reports. If reporting changes
-  shape, we need to update the parser. Acceptable; we pin the action
-  version in the workflows.
-- Three Environments mean a slightly larger setup script and three secret
-  copies if the user reuses the same key. We keep `setup.sh` idempotent so
-  re-runs converge.
-- Budget enforcement reaction time is bounded by the `tick` interval (ADR
-  0001). A runaway run can overshoot by one tick. Per-WorkItem token caps
-  in the worker config provide a second line of defence.
+- Token / wall-time figures depend on what the Claude Code session
+  surfaces to skills and slash commands. If that surface changes, the
+  capture step changes. Acceptable; the ledger schema isolates it.
+- Subscription usage is harder to reason about as money than per-call
+  API costs. We compensate with `toolCalls` and `wallSeconds` caps,
+  which are coarser but always present.
+- Two hosts means two slightly different credential setup paths in
+  `setup.sh`. Doctor reconciles them.
 - Sub-run accounting requires every subagent invocation to receive a
-  `parentRunId`. The `architecture.md` Run schema is updated accordingly.
+  `parentRunId`. The `architecture.md` Run schema is updated
+  accordingly.
 
 ## Alternatives considered
 
-- **One Environment for everything.** Rejected: deploy creds end up in QA
-  runs. Bad blast radius.
-- **One Environment per station.** Rejected: bookkeeping cost outweighs the
-  isolation benefit at our scale; the three blast-radius tiers cover the
-  threats we actually have.
-- **Cost from monthly Anthropic console totals.** Rejected: too coarse;
-  can't attribute to a Run, can't enforce per-WorkItem budgets.
-- **External billing/observability service.** Rejected as a v1 dependency;
-  revisit when Phase 3 builds the live dashboard.
+- **Three GitHub Environments for everything.** Deferred from the prior
+  draft of this ADR. The orchestrator no longer runs in Actions, so
+  Environments only make sense for the deploy step — kept there.
+- **Skip cost attribution entirely while subscription is a flat cost.**
+  Rejected: budgets are also a runaway-protection mechanism, not just a
+  spend tracker. We need *some* measured value to compare against caps,
+  even if it's tool-call count.
+- **Direct Anthropic API calls for cost transparency.** Rejected: that
+  reintroduces the spend that ADR 0001 went out of its way to remove.

@@ -28,17 +28,19 @@ with one trivial change (e.g. "add a hello-world script"), end-to-end via the
 factory.
 
 - [ ] `.claude/settings.json` with strict allowlist + SessionStart hook
-- [ ] `.github/workflows/intake.yml` — labels and triages on issue creation
-- [ ] `.github/workflows/implement.yml` — invokes Claude Code on labelled issues
-- [ ] `.github/workflows/qa.yml` — runs the review subagent on the PR
+- [ ] `factory` skill + `/factory-tick` slash command (the orchestrator loop)
 - [ ] One subagent each: `intake`, `plan`, `review`
 - [ ] `.factory/policy.yml` with conservative defaults
 - [ ] `.factory/runs/` ledger format defined and written by every run
-- [ ] `scripts/setup.sh` (minimum viable: labels + secret check)
+- [ ] `.factory/state/lock.json` acquire/release wired into the tick loop
+- [ ] `.github/workflows/ci.yml` — project tests/lint on PRs (only)
+- [ ] `.github/workflows/integrate.yml` — auto-merge sealer on `stage:integrate`
+- [ ] `scripts/setup.sh` (minimum viable: labels + credential check, both hosts)
 - [ ] Smoke-test issue auto-filed by `setup.sh`
 
-Acceptance: clone the repo to a fresh GitHub account, run `setup.sh`, observe
-the smoke-test issue land as a merged PR within budget.
+Acceptance: clone the repo to a fresh GitHub account, run `setup.sh`, open
+Claude Code (web or local) and run `/factory-tick`, observe the smoke-test
+issue land as a merged PR within budget.
 
 ---
 

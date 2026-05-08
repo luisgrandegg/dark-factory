@@ -45,8 +45,10 @@ guardrails.
 - Handles failures: retry, downgrade, escalate.
 - Reports throughput and cost to the control room.
 
-Implementation: GitHub Actions for v1; a long-running process is on the
-table for later phases. See [ADR 0001](./adrs/0001-orchestrator-runtime.md).
+Implementation: a Claude Code session — runs on Claude Code on the web for
+lights-out operation, or in the local CLI when the operator opens their
+laptop. Same code in both. See
+[ADR 0001](./adrs/0001-orchestrator-runtime.md).
 
 ### 1.2 Workstations
 
@@ -209,8 +211,9 @@ The schedule station emits WorkItems for:
 | Concern        | Choice (initial)                         | Notes                          |
 | -------------- | ---------------------------------------- | ------------------------------ |
 | Source / PRs   | GitHub                                   | Required.                      |
-| Conveyor       | GitHub Actions                           | Use Claude Code GitHub action. |
-| Worker runtime | Claude Code (CLI + Web background runs)  | Subagents via `Task` tool.     |
+| Orchestrator   | Claude Code session (web or local CLI)   | See ADR 0001.                  |
+| GitHub Actions | CI + auto-merge sealing only             | Not used for orchestration.    |
+| Worker runtime | Claude Code subagents and skills         | Same session as orchestrator.  |
 | Hooks          | `.claude/settings.json` SessionStart, PreToolUse, Stop | Guardrails + setup. |
 | Skills         | `.claude/skills/`                        | Capabilities-as-code.          |
 | MCP            | GitHub MCP, optional others              | Restricted by allowlist.       |
