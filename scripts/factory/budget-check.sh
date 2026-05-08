@@ -36,6 +36,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$workitem" ]] || die "usage: budget-check.sh --workitem <id> [--station <name>]"
+# `--station` is accepted for forward-compat (per-station caps are
+# enforced inside the station's tick, not in this pre-flight check) but
+# intentionally unused here; reference it once so shellcheck is happy.
+: "${station:=}"
 
 repo=$(repo_slug) || die "could not determine repo slug"
 ledger=$(policy_ledger_branch); ledger=${ledger:-factory/ledger}
@@ -67,19 +71,16 @@ PY
   fi
 }
 
-cap_wi_tokens=$(yaml_get perWorkItem.maxTokens)
+# Per-station caps live in policy.yml but apply *during* a station's tick
+# (the station counts its own calls), not as a pre-flight rollup, so we
+# don't read them here. Per-WorkItem token usage is also out of scope:
+# the ledger has no token source today (Phase 3+).
 cap_wi_calls=$(yaml_get perWorkItem.maxToolCalls)
 cap_wi_wall=$(yaml_get perWorkItem.maxWallMinutes)
 cap_wi_retries=$(yaml_get perWorkItem.maxRetries)
 cap_day_tokens=$(yaml_get perDay.maxTokens)
 cap_day_calls=$(yaml_get perDay.maxToolCalls)
 cap_day_wall=$(yaml_get perDay.maxWallMinutes)
-cap_st_calls=""
-cap_st_wall=""
-if [[ -n "$station" ]]; then
-  cap_st_calls=$(yaml_get "perStation.$station.maxToolCalls")
-  cap_st_wall=$(yaml_get "perStation.$station.maxWallMinutes")
-fi
 
 # ---- per-WorkItem rollup from runs/by-workitem/<id>.jsonl --------------
 index_path="runs/by-workitem/$workitem.jsonl"
@@ -121,7 +122,10 @@ day_calls=0; day_wall_min=0; day_tokens=0
 if [[ -n "$budget_doc" ]]; then
   bj=$(printf '%s' "$budget_doc" | contents_decode)
   today=$(date -u +"%Y-%m-%d")
-  read -r day_tokens day_calls day_wall_min < <(printf '%s' "$bj" | python3 - "$today" <<'PY'
+  # The python script reads $bj on stdin and the date on argv[1]. We pass
+  # the script via -c (not a heredoc) so the pipe stays connected to
+  # python's stdin (shellcheck SC2259).
+  read -r day_tokens day_calls day_wall_min < <(printf '%s' "$bj" | python3 -c '
 import sys, json
 day = sys.argv[1]
 try:
@@ -130,13 +134,11 @@ except Exception:
     doc = {}
 d = (doc.get("days") or {}).get(day, {})
 print(d.get("tokens", 0) or 0, d.get("toolCalls", 0) or 0, d.get("wallMinutes", 0) or 0)
-PY
-)
+' "$today")
 fi
 
 # ---- compare and report ------------------------------------------------
 hits=()
-gt() { [[ -n "$1" && -n "$2" && "$1" != "null" && "$2" != "null" ]] && (( $1 > $2 )); }
 check() { # name used limit
   local name="$1" used="$2" limit="$3"
   [[ -z "$limit" || "$limit" == "null" ]] && return 0

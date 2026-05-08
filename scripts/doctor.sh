@@ -16,7 +16,7 @@
 set -uo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || { printf 'cannot cd to %s\n' "$REPO_ROOT" >&2; exit 1; }
 POLICY=".factory/policy.yml"
 
 quick=0; json=0
@@ -61,22 +61,31 @@ emit ok "policy.yml" "present"
 
 # ---- 1. binaries -------------------------------------------------------
 have() { command -v "$1" >/dev/null 2>&1; }
-have python3 && emit ok "python3"   "$(python3 -c 'import sys;print(sys.version.split()[0])')" \
-              || emit fail "python3" "not on PATH"
-have git     && emit ok "git"       "$(git --version | awk '{print $3}')" \
-              || emit fail "git"     "not on PATH"
+if have python3; then
+  emit ok   "python3" "$(python3 -c 'import sys;print(sys.version.split()[0])')"
+else
+  emit fail "python3" "not on PATH"
+fi
+if have git; then
+  emit ok   "git" "$(git --version | awk '{print $3}')"
+else
+  emit fail "git" "not on PATH"
+fi
 if have gh; then
   if gh auth status >/dev/null 2>&1; then
     user=$(gh api user --jq .login 2>/dev/null || echo "?")
-    emit ok "gh"       "authenticated as $user"
+    emit ok   "gh" "authenticated as $user"
   else
-    emit fail "gh"     "installed but not authenticated (run: gh auth login)"
+    emit fail "gh" "installed but not authenticated (run: gh auth login)"
   fi
 else
-  emit fail "gh"       "not installed (https://cli.github.com)"
+  emit fail "gh" "not installed (https://cli.github.com)"
 fi
-have yq      && emit ok "yq (optional)"  "$(yq --version 2>/dev/null | awk '{print $NF}')" \
-              || emit warn "yq (optional)" "absent — falling back to awk parser"
+if have yq; then
+  emit ok   "yq (optional)" "$(yq --version 2>/dev/null | awk '{print $NF}')"
+else
+  emit warn "yq (optional)" "absent — falling back to awk parser"
+fi
 
 # ---- 2. settings.json validity ----------------------------------------
 if python3 -c "import json; json.load(open('.claude/settings.json'))" 2>/dev/null; then

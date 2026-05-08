@@ -44,7 +44,7 @@ if [[ "${FACTORY_AUTH_DESTRUCTIVE:-0}" != "1" ]]; then
     *"git push origin main"*|*"git push origin master"*) block "direct push to main/master" ;;
     *"git push origin HEAD:main"*|*"git push origin HEAD:master"*) block "direct push to main/master via HEAD ref" ;;
     *"git reset --hard"*)                         block "hard reset" ;;
-    *"git clean -fd"*|*"git clean -fdx"*)         block "git clean -fd" ;;
+    *"git clean -fd"*)                            block "git clean -fd" ;;
     *"git branch -D"*)                            block "force branch delete" ;;
     *"git push --delete"*|*"git push -d "*)       block "remote branch delete" ;;
     *"rm -rf"*)                                   block "rm -rf" ;;

@@ -39,6 +39,7 @@ paths=$(cat)
 # minimal awk parser that handles the exact shape committed in policy.yml.
 gates_yaml() {
   if command -v yq >/dev/null 2>&1; then
+    # shellcheck disable=SC2016  # the $p/$l bindings are yq variables, not shell.
     yq -r '
       .approvalGates // []
       | .[]
