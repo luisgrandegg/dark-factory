@@ -68,7 +68,11 @@ flight, what each is doing, today's spend, and what failed and why.
 
 - [ ] Static control-room page generated from the ledger branch
 - [ ] Daily cost + throughput report posted as an issue / Slack message
-- [ ] Failure clustering (top reasons jobs fail this week)
+- [x] Failure clustering (top reasons jobs fail this week) —
+      `scripts/factory/failures.sh` clusters Run records with status
+      `failure` or `escalated` over a rolling window: top reasons (with
+      station + status breakdown) and top affected WorkItems. Smoke-
+      tested by `scripts/test/failures-smoke.sh`.
 - [x] Per-station latency / success rate — `scripts/factory/metrics.sh`
       reads the ledger over a rolling window and prints a markdown or
       JSON summary (runs, success/failure/escalated counts, success
