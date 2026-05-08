@@ -29,7 +29,7 @@ factory.
 
 - [x] `.claude/settings.json` with strict allowlist + SessionStart hook
 - [x] `factory` skill + `/factory-tick` slash command (the orchestrator loop)
-- [x] One subagent each: `intake`, `plan`, `review`
+- [x] One subagent each: `intake`, `plan`, `contract-check`
 - [x] `.factory/policy.yml` with conservative defaults
 - [x] Ledger format defined and written to the configured ledger branch
       (default `factory/ledger`, orphan; see ADR 0002)
@@ -70,6 +70,16 @@ flight, what each is doing, today's spend, and what failed and why.
 - [ ] Daily cost + throughput report posted as an issue / Slack message
 - [ ] Failure clustering (top reasons jobs fail this week)
 - [ ] Per-station latency / success rate
+- [ ] **Artifact snapshots in ledger Run records** — when a station closes
+      a Run, persist the artifact body (spec, test plan, contract-check
+      verdict) into `artifacts/<run-id>.md` on `factory/ledger`, or inline
+      on the Run record. GitHub comments stay the canonical mutable
+      surface; the snapshot is the immutable audit trail. Solves
+      point-in-time replay ("what did plan see when it produced this test
+      plan?") without adding a new storage surface — uses the ledger's
+      existing append-only semantics. Trigger to actually build it: the
+      first time a retrospective script wants to ask that question and
+      can't, because someone edited a comment after the fact.
 
 ---
 
