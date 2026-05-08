@@ -45,9 +45,8 @@ guardrails.
 - Handles failures: retry, downgrade, escalate.
 - Reports throughput and cost to the control room.
 
-Implementation candidates (deferred): GitHub Actions matrix, a long-running
-Node/Python process, or Claude Code's own background-agent capabilities.
-See `docs/adrs/0001-orchestrator.md` (TBD).
+Implementation: GitHub Actions for v1; a long-running process is on the
+table for later phases. See [ADR 0001](./adrs/0001-orchestrator-runtime.md).
 
 ### 1.2 Workstations
 
@@ -242,16 +241,19 @@ The whole thing is only safe because of these. Listed in priority order:
 
 ## 6. Open questions
 
-Captured here, to be promoted to ADRs as we decide:
+Resolved in [ADRs](./adrs/):
 
-- **Orchestrator runtime**: GitHub Actions only, or a long-running process?
-  Actions is simpler; long-running gives better UX for live dashboards.
-- **State machine durability**: labels + comments only, or a JSON ledger in
-  `.factory/state/`?
-- **Concurrency model**: per-issue serial, or task-level parallel within a
-  WorkItem?
-- **Cost attribution**: how do we tie token spend to a specific Run when using
-  the Web/CLI?
+- Orchestrator runtime → [ADR 0001](./adrs/0001-orchestrator-runtime.md)
+  (Actions for v1).
+- State durability → [ADR 0002](./adrs/0002-state-durability.md) (labels
+  authoritative for state, JSON ledger for history).
+- Concurrency model → [ADR 0003](./adrs/0003-concurrency-model.md) (parallel
+  WorkItems, serial stations and tasks).
+- Secret / cost attribution → [ADR 0004](./adrs/0004-secret-and-cost-attribution.md)
+  (three Environments; per-Run ledger entries with token / USD totals).
+
+Still open, to be promoted to ADRs as we decide:
+
 - **Multi-repo factory**: does one factory drive many product repos, or one
   factory per repo? (Probably: one per repo, with a shared skills library.)
 - **Local-dev story**: can a developer run the factory on their laptop against

@@ -14,10 +14,10 @@ could start building.
 - [x] README with concept and metaphor
 - [x] Architecture, domain model, workflows, guardrails
 - [x] Template directory layout and setup story
-- [ ] ADR: orchestrator runtime (Actions vs. long-running process)
-- [ ] ADR: state durability (labels + comments vs. JSON ledger)
-- [ ] ADR: concurrency model
-- [ ] ADR: secret / cost-attribution strategy
+- [x] ADR: orchestrator runtime (Actions vs. long-running process) — [0001](./adrs/0001-orchestrator-runtime.md)
+- [x] ADR: state durability (labels + comments vs. JSON ledger) — [0002](./adrs/0002-state-durability.md)
+- [x] ADR: concurrency model — [0003](./adrs/0003-concurrency-model.md)
+- [x] ADR: secret / cost-attribution strategy — [0004](./adrs/0004-secret-and-cost-attribution.md)
 
 ---
 
