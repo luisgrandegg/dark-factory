@@ -45,9 +45,10 @@ guardrails.
 - Handles failures: retry, downgrade, escalate.
 - Reports throughput and cost to the control room.
 
-Implementation candidates (deferred): GitHub Actions matrix, a long-running
-Node/Python process, or Claude Code's own background-agent capabilities.
-See `docs/adrs/0001-orchestrator.md` (TBD).
+Implementation: a Claude Code session — runs on Claude Code on the web for
+lights-out operation, or in the local CLI when the operator opens their
+laptop. Same code in both. See
+[ADR 0001](./adrs/0001-orchestrator-runtime.md).
 
 ### 1.2 Workstations
 
@@ -159,9 +160,12 @@ Policy
 
 ### 2.4 Why no database
 
-For v1, persisting in the repo (issues, PR comments, files in
-`.factory/runs/`) keeps the template **portable** and **auditable**. Promote to
-a real store only when we hit limits.
+For v1, persisting in the repo keeps the template **portable** and
+**auditable**: issues, labels, and PR comments live at repo level;
+configuration and product code on `main`; mutable factory state (lock,
+budget, snapshots) on a sibling `factory/state` branch; and append-only
+run history on `factory/ledger` (see ADR 0002). Promote to a real store
+only when we hit limits.
 
 ---
 
@@ -210,8 +214,9 @@ The schedule station emits WorkItems for:
 | Concern        | Choice (initial)                         | Notes                          |
 | -------------- | ---------------------------------------- | ------------------------------ |
 | Source / PRs   | GitHub                                   | Required.                      |
-| Conveyor       | GitHub Actions                           | Use Claude Code GitHub action. |
-| Worker runtime | Claude Code (CLI + Web background runs)  | Subagents via `Task` tool.     |
+| Orchestrator   | Claude Code session (web or local CLI)   | See ADR 0001.                  |
+| GitHub Actions | CI + auto-merge sealing only             | Not used for orchestration.    |
+| Worker runtime | Claude Code subagents and skills         | Same session as orchestrator.  |
 | Hooks          | `.claude/settings.json` SessionStart, PreToolUse, Stop | Guardrails + setup. |
 | Skills         | `.claude/skills/`                        | Capabilities-as-code.          |
 | MCP            | GitHub MCP, optional others              | Restricted by allowlist.       |
@@ -235,23 +240,26 @@ The whole thing is only safe because of these. Listed in priority order:
    `rm -rf`, destructive SQL unless explicitly authorised.
 6. **Secrets scoping** — secrets injected per-station via the conveyor; never
    committed; scanning runs on every PR.
-7. **Audit trail** — every Run is logged to `.factory/runs/` and surfaced in
-   the control room.
+7. **Audit trail** — every Run is logged to the ledger branch (ADR 0002)
+   and surfaced in the control room.
 
 ---
 
 ## 6. Open questions
 
-Captured here, to be promoted to ADRs as we decide:
+Resolved in [ADRs](./adrs/):
 
-- **Orchestrator runtime**: GitHub Actions only, or a long-running process?
-  Actions is simpler; long-running gives better UX for live dashboards.
-- **State machine durability**: labels + comments only, or a JSON ledger in
-  `.factory/state/`?
-- **Concurrency model**: per-issue serial, or task-level parallel within a
-  WorkItem?
-- **Cost attribution**: how do we tie token spend to a specific Run when using
-  the Web/CLI?
+- Orchestrator runtime → [ADR 0001](./adrs/0001-orchestrator-runtime.md)
+  (Actions for v1).
+- State durability → [ADR 0002](./adrs/0002-state-durability.md) (labels
+  authoritative for state, JSON ledger for history).
+- Concurrency model → [ADR 0003](./adrs/0003-concurrency-model.md) (parallel
+  WorkItems, serial stations and tasks).
+- Secret / cost attribution → [ADR 0004](./adrs/0004-secret-and-cost-attribution.md)
+  (three Environments; per-Run ledger entries with token / USD totals).
+
+Still open, to be promoted to ADRs as we decide:
+
 - **Multi-repo factory**: does one factory drive many product repos, or one
   factory per repo? (Probably: one per repo, with a shared skills library.)
 - **Local-dev story**: can a developer run the factory on their laptop against

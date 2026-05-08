@@ -51,6 +51,7 @@ You bring the product idea and the budget. The factory does the floor work.
 - [`docs/architecture.md`](./docs/architecture.md) — components, domain model, workflows
 - [`docs/template-contents.md`](./docs/template-contents.md) — what the cloneable template will contain
 - [`docs/roadmap.md`](./docs/roadmap.md) — phased path from design → working template
+- [`docs/adrs/`](./docs/adrs/) — architecture decision records
 
 ---
 

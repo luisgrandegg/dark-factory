@@ -14,10 +14,10 @@ could start building.
 - [x] README with concept and metaphor
 - [x] Architecture, domain model, workflows, guardrails
 - [x] Template directory layout and setup story
-- [ ] ADR: orchestrator runtime (Actions vs. long-running process)
-- [ ] ADR: state durability (labels + comments vs. JSON ledger)
-- [ ] ADR: concurrency model
-- [ ] ADR: secret / cost-attribution strategy
+- [x] ADR: orchestrator runtime (Actions vs. long-running process) — [0001](./adrs/0001-orchestrator-runtime.md)
+- [x] ADR: state durability (labels + comments vs. JSON ledger) — [0002](./adrs/0002-state-durability.md)
+- [x] ADR: concurrency model — [0003](./adrs/0003-concurrency-model.md)
+- [x] ADR: secret / cost-attribution strategy — [0004](./adrs/0004-secret-and-cost-attribution.md)
 
 ---
 
@@ -28,17 +28,20 @@ with one trivial change (e.g. "add a hello-world script"), end-to-end via the
 factory.
 
 - [ ] `.claude/settings.json` with strict allowlist + SessionStart hook
-- [ ] `.github/workflows/intake.yml` — labels and triages on issue creation
-- [ ] `.github/workflows/implement.yml` — invokes Claude Code on labelled issues
-- [ ] `.github/workflows/qa.yml` — runs the review subagent on the PR
+- [ ] `factory` skill + `/factory-tick` slash command (the orchestrator loop)
 - [ ] One subagent each: `intake`, `plan`, `review`
 - [ ] `.factory/policy.yml` with conservative defaults
-- [ ] `.factory/runs/` ledger format defined and written by every run
-- [ ] `scripts/setup.sh` (minimum viable: labels + secret check)
+- [ ] Ledger format defined and written to the configured ledger branch
+      (default `factory/ledger`, orphan; see ADR 0002)
+- [ ] `lock.json` (on the state branch) acquire/release wired into the tick loop
+- [ ] `.github/workflows/ci.yml` — project tests/lint on PRs (only)
+- [ ] `.github/workflows/integrate.yml` — auto-merge sealer on `stage:integrate`
+- [ ] `scripts/setup.sh` (minimum viable: labels + credential check, both hosts)
 - [ ] Smoke-test issue auto-filed by `setup.sh`
 
-Acceptance: clone the repo to a fresh GitHub account, run `setup.sh`, observe
-the smoke-test issue land as a merged PR within budget.
+Acceptance: clone the repo to a fresh GitHub account, run `setup.sh`, open
+Claude Code (web or local) and run `/factory-tick`, observe the smoke-test
+issue land as a merged PR within budget.
 
 ---
 
@@ -63,7 +66,7 @@ side-project repo.
 **Exit:** an operator can answer, in under a minute: how many WorkItems are in
 flight, what each is doing, today's spend, and what failed and why.
 
-- [ ] Static control-room page generated from `.factory/runs/`
+- [ ] Static control-room page generated from the ledger branch
 - [ ] Daily cost + throughput report posted as an issue / Slack message
 - [ ] Failure clustering (top reasons jobs fail this week)
 - [ ] Per-station latency / success rate
