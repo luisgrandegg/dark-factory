@@ -160,10 +160,12 @@ Policy
 
 ### 2.4 Why no database
 
-For v1, persisting in the repo (issues, PR comments on `main`, ledger
-files on a sibling `factory/ledger` branch — see ADR 0002) keeps the
-template **portable** and **auditable**. Promote to a real store only
-when we hit limits.
+For v1, persisting in the repo keeps the template **portable** and
+**auditable**: issues, labels, and PR comments live at repo level;
+configuration and product code on `main`; mutable factory state (lock,
+budget, snapshots) on a sibling `factory/state` branch; and append-only
+run history on `factory/ledger` (see ADR 0002). Promote to a real store
+only when we hit limits.
 
 ---
 

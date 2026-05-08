@@ -96,7 +96,8 @@ same shape:
    ```
 
 5. **Roll up:** at the start of each tick, the orchestrator sums the
-   day's runs and writes `.factory/state/budget.json` (derived; ADR 0002).
+   day's runs and writes `budget.json` to the configured state branch
+   (derived; ADR 0002).
    The next station refuses to start if the cap is hit and labels the
    WorkItem `escalated` with reason `budget`.
 

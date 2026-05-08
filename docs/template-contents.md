@@ -21,23 +21,20 @@ ready to operate after a one-shot setup.
 │
 ├── .factory/
 │   ├── policy.yml               # budgets, allowlists, approval gates,
-│   │                            # ledger branch name
+│   │                            # state.branch and ledger.branch names
 │   ├── prompts/                 # canonical prompts per station
-│   ├── state/                   # derived snapshots (lock.json, budget.json)
-│   └── dashboard/               # static control room (generated)
-│                                # Run ledger lives on a sibling orphan
-│                                # branch (default factory/ledger; see
-│                                # ADR 0002), NOT under .factory/ on main.
+│   └── dashboard/               # static control room (generated on main)
+│                                # Mutable state (lock.json, budget.json,
+│                                # snapshots) lives on the state branch
+│                                # (default factory/state). Run history
+│                                # lives on the ledger branch (default
+│                                # factory/ledger). Both are orphan
+│                                # sibling branches — see ADR 0002.
 │
 ├── .github/
 │   ├── workflows/
-│   │   ├── intake.yml           # on: issues opened/edited
-│   │   ├── plan.yml             # on: label "stage:plan"
-│   │   ├── implement.yml        # on: label "stage:implement"
-│   │   ├── qa.yml               # on: pull_request
-│   │   ├── integrate.yml        # on: PR labelled "stage:integrate"
-│   │   ├── schedule.yml         # cron: recurring jobs
-│   │   └── report.yml           # cron: control-room rebuild
+│   │   ├── ci.yml               # tests/lint on PRs to main
+│   │   └── integrate.yml        # auto-merge sealer on stage:integrate
 │   ├── ISSUE_TEMPLATE/          # the shape of work the factory consumes
 │   └── PULL_REQUEST_TEMPLATE.md
 │
@@ -66,15 +63,17 @@ A single command after cloning. Idempotent.
 1. Verifies `gh` is installed and authenticated.
 2. Creates the labels the factory needs (`stage:*`, `priority:*`,
    `needs-human`, `escalated`, `factory:*`).
-3. Prompts for the **ledger branch name** (default `factory/ledger`),
-   writes it to `.factory/policy.yml`, creates the orphan branch with a
-   root `README.md`, and pushes it.
+3. Prompts for the **state branch name** (default `factory/state`) and
+   the **ledger branch name** (default `factory/ledger`), writes both to
+   `.factory/policy.yml`, creates each as an orphan with a root
+   `README.md`, and pushes them.
 4. Wires the `factory-deploy` GitHub Environment for any deploy creds
    the user wants the factory to be able to use; non-deploy credentials
    come from the host (see ADR 0004).
 5. Files a "first ticket" issue that the factory consumes end-to-end as
    a smoke test on first `/factory-tick`.
-6. Prints links to the control room and the runbook.
+6. Prints links to the control room, the runbook, and the two factory
+   branches.
 
 Failure modes surface as a list of `doctor.sh`-fixable items.
 

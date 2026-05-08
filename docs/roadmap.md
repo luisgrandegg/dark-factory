@@ -33,7 +33,7 @@ factory.
 - [ ] `.factory/policy.yml` with conservative defaults
 - [ ] Ledger format defined and written to the configured ledger branch
       (default `factory/ledger`, orphan; see ADR 0002)
-- [ ] `.factory/state/lock.json` acquire/release wired into the tick loop
+- [ ] `lock.json` (on the state branch) acquire/release wired into the tick loop
 - [ ] `.github/workflows/ci.yml` — project tests/lint on PRs (only)
 - [ ] `.github/workflows/integrate.yml` — auto-merge sealer on `stage:integrate`
 - [ ] `scripts/setup.sh` (minimum viable: labels + credential check, both hosts)

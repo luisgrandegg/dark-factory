@@ -68,15 +68,19 @@ stations run inside the orchestrator session.
 
 A single `factory-tick` invocation does, roughly:
 
-1. Read state: pull the issues + PRs filtered by `stage:*` labels, read
-   the most recent ledger entries from the ledger branch (ADR 0002).
-2. Pick the highest-priority actionable WorkItem honouring concurrency
-   (ADR 0003).
-3. Open a Run ledger entry on the ledger branch (ADR 0004).
-4. Spawn the station's subagent / skill.
-5. On completion: update the WorkItem's labels, post the artefact
-   comment, finalise the ledger entry on the ledger branch.
-6. Loop until: queue empty, budget hit, or operator interrupts.
+1. Read state: pull the issues + PRs filtered by `stage:*` labels, fetch
+   `lock.json` and `budget.json` from the state branch, read the most
+   recent entries from the ledger branch (ADR 0002).
+2. Acquire the multi-session lock on the state branch (ADR 0003); back
+   off if another session holds it.
+3. Pick the highest-priority actionable WorkItem honouring concurrency.
+4. Open a Run ledger entry on the ledger branch (ADR 0004).
+5. Spawn the station's subagent / skill.
+6. On completion: update the WorkItem's labels, post the artefact
+   comment, finalise the ledger entry on the ledger branch, refresh
+   `budget.json` on the state branch.
+7. Release the lock and loop until: queue empty, budget hit, or operator
+   interrupts.
 
 In web mode, the loop sleeps between ticks and is woken by PR-activity
 subscriptions. In local mode, the loop runs straight through and the

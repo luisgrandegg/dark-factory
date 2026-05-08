@@ -72,14 +72,18 @@ session and a local CLI session), we need a single-writer guarantee on the
 "pick next WorkItem and start ticking it" loop. We use a soft repo-level
 lock:
 
-- File: `.factory/state/lock.json`
-- Contents: `{ sessionId, host, acquiredAt, expiresAt }`
-- Acquire: orchestrator commits the file with a TTL of N minutes (v1: 10).
-  Commit conflict ⇒ another session won; this session goes idle.
+- File: `lock.json` at the root of the configured **state branch**
+  (default `factory/state`; see ADR 0002).
+- Contents: `{ sessionId, host, acquiredAt, expiresAt }`.
+- Acquire: orchestrator commits the file via the GitHub Contents API
+  with a TTL of N minutes (v1: 10). The API uses optimistic concurrency
+  on the parent SHA — commit conflict ⇒ another session won; this
+  session goes idle.
 - Release: orchestrator deletes the file at end of tick, or the TTL
   expires.
-- Stale recovery: a session may forcibly take a lock whose `expiresAt` is
-  in the past; doing so logs a `factory:lock-stolen` event in the ledger.
+- Stale recovery: a session may forcibly take a lock whose `expiresAt`
+  is in the past; doing so logs a `factory:lock-stolen` event in the
+  ledger.
 
 This is a coarse, optimistic lock — fine for the cap of one writer at a
 time at our scale. It is not a transactional system; the ledger is the
