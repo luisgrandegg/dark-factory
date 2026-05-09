@@ -13,6 +13,8 @@ ADRs are immutable once accepted. To change a decision, write a new ADR that
 | 0002 | [State durability](./0002-state-durability.md)         | Accepted |
 | 0003 | [Concurrency model](./0003-concurrency-model.md)       | Accepted |
 | 0004 | [Secret and cost attribution](./0004-secret-and-cost-attribution.md) | Accepted |
+| 0005 | [SDLC step contract and implementation registry](./0005-sdlc-step-contract.md) | Proposed |
+| 0006 | [Repo-level check harness](./0006-repo-check-harness.md) | Proposed |
 
 ## Format
 
