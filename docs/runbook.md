@@ -23,6 +23,28 @@ and at least one tick has happened. For "what is this thing" read
 If you're new to the runbook, run `scripts/doctor.sh` first. Most "what's
 wrong" questions answer themselves once you see its output.
 
+## Claude Code on the web
+
+Web sandboxes start with no `gh`, no `yq`, and no GitHub credentials.
+The repo's `SessionStart` hook installs `gh` and `yq` from apt on the
+first session in a container; both are cached for subsequent sessions.
+
+You still need to provide auth. In claude.ai/code → **Environments** →
+edit the environment for this repo → **Environment variables**, set:
+
+| Name           | Value                                                   |
+| -------------- | ------------------------------------------------------- |
+| `GITHUB_TOKEN` | A PAT with `repo`, `workflow`, and `issues` scopes      |
+
+`gh` reads `GITHUB_TOKEN` (or `GH_TOKEN`) automatically — no `gh auth
+login` needed. The session header from the hook tells you whether auth
+is healthy each session.
+
+If you need to install other tools the factory will reach for (e.g. a
+language toolchain so the implement station can run tests), extend
+`.claude/hooks/session-start.sh` with another `apt-get install` line
+guarded by `[[ "${CLAUDE_CODE_REMOTE:-}" == "true" ]]`.
+
 ## Daily checks
 
 Once a day, ideally before opening new issues:
@@ -52,108 +74,110 @@ If you need to release it before the TTL expires (e.g. you know the
 holding session is dead), run:
 
 ```bash
-FACTORY_FORCE=1 scripts/factory/lock-release.sh
+scripts/factory/lock-release.sh
 ```
 
-This is the only blessed way to forcibly clear `lock.json`. Never
-manually edit the state branch.
+This writes a tombstone to `lock.json` on `factory/state`. The next
+tick reads `released: true` and proceeds. Always prefer this over
+deleting the file by hand.
 
 ### Re-run a failed station
 
-The factory only retries automatically while
-`policy.budgets.perWorkItem.maxRetries` allows it. To re-run after the
-cap, remove the `stage:escalated` label and add the appropriate stage
-label — but only after you've fixed whatever caused the failure (read
-the last Run in `runs/by-workitem/<id>.jsonl`).
+The orchestrator does not retry automatically beyond
+`budgets.perWorkItem.maxRetries` (default 3). To re-run a station for a
+specific WorkItem outside that, edit its labels back to the previous
+stage and `/factory-tick`:
 
 ```bash
+gh issue edit <id> --remove-label "stage:escalated" \
+                   --add-label "stage:plan"   # or wherever
 # E.g. an item that escalated out of QA and you've fixed the test plan
-gh issue edit <id> --remove-label "stage:escalated,needs-human" \
-                   --add-label "stage:qa"
 ```
 
-The legal "from-escalated" transitions are listed in
-`policy.stages.transitions["stage:escalated"]`. The orchestrator refuses
-moves not on that list.
+The ledger keeps the failed Run; the next tick adds another with the
+new attempt. Don't edit the ledger.
 
 ### Bump a budget
 
-Budgets live in `.factory/policy.yml` under `budgets.*`. Editing the
-file lands on `main` via PR (and trips the `policy.yml` approval gate,
-so a human review is mandatory). The change takes effect on the next
-tick — there is no cache.
+Budgets live in `.factory/policy.yml` on `main`, in the `budgets:`
+block. Edit on a `claude/<slug>` branch, open a PR, merge. Do not
+patch them at runtime — the ledger's daily roll-up is computed
+against the policy at the time of each tick, and runtime patches
+leak inconsistency into the audit trail.
 
-Per-day caps reset at UTC midnight. If you've tripped the day cap and
-need to keep going today, the right tool is the PR; there is no
-emergency override flag.
+If the day cap is tripped *right now* and you need to ship one more
+WorkItem before midnight UTC, the supported escape hatch is to bump
+the cap on a PR and merge it; the next tick reads the new value.
 
 ### Fix a corrupt stage-label state
 
-If `doctor.sh` flags an issue with multiple `stage:*` labels, do this:
+Multiple `stage:*` labels on one issue is corrupt state (invariant
+#3). To recover:
 
-1. `gh issue view <id> --json labels` — see the full list.
-2. Decide which stage is correct from the most recent ledger Run for
-   that workitem (`runs/by-workitem/<id>.jsonl`).
-3. Remove every `stage:*` label except the right one.
-4. If you can't tell, escalate it (see playbook) and let a human read
-   the comments.
+1. Decide which stage the issue actually is in. Read the most recent
+   intake/spec/plan/qa comment; the latest one wins.
+2. Remove the stale labels with `gh issue edit <id> --remove-label
+   "stage:<wrong>"`.
+3. Comment on the issue explaining the recovery.
+
+The doctor script lists corrupt items at the top of its report so
+you see them every morning.
 
 ### Spin up a throwaway test factory
 
-When you want to exercise a guardrail without polluting the real
-factory's history (e.g. testing the secret-scan workflow with a fake
-credential, or tripping an `approvalGates` path on purpose), don't do
-it here. Use:
+When you want to validate a change to the orchestrator without
+risking a real factory, use the seed script:
 
 ```bash
-scripts/seed-test-repo.sh --name dark-factory-test
+scripts/seed-test-repo.sh <new-repo-name>
 ```
 
-That creates a private GitHub repo, pushes the current tree as a single
-seed commit, clones it locally, and runs `setup.sh` for you. Teardown
-is a single `gh repo delete` when you're done. See the script's
-`--help` for flags.
-
-The full testing playbook (smoke test, negative tests per Phase 2
-guardrail) is in [`docs/testing.md`](./testing.md).
+It forks the template into a fresh repo under your account and runs
+`setup.sh` against it. Tear it down with `gh repo delete` when done.
+See [`docs/testing.md`](./testing.md) for what to verify.
 
 ### Replace a bad PR
 
-If a PR opened by the factory is wrong in a way that can't be fixed by
-another tick (e.g. it solved the wrong problem because the spec was
-wrong), the cleanest path is:
+If an opened PR is wrong (touched the wrong files, opened against
+the wrong base), close it with a comment, swap the labels back to
+`stage:implement`, and let the next tick re-open. Do not force-push
+to rewrite. The integrate sealer does not merge force-pushed history.
 
-1. `gh pr close <pr> --delete-branch`
-2. Edit the spec comment on the issue (or post a follow-up comment that
-   supersedes it; the plan station reads the latest one).
-3. `gh issue edit <id> --remove-label "stage:qa,stage:implement,stage:integrate" --add-label "stage:plan"`
-
-The factory will pick it up on the next tick from `stage:plan`.
+```bash
+gh pr close <pr> --comment "superseding; see <new-pr> when filed"
+gh issue edit <id> --add-label "stage:implement" \
+                   --remove-label "stage:qa"
+```
 
 ## State surfaces
 
 ### `factory/state` branch
 
-Mutable. The orchestrator rewrites these on every tick:
+- `lock.json` — multi-session lock. `held: false` is the resting
+  state. The schema is in [ADR 0003](./adrs/0003-concurrency-model.md).
+- `budget.json` — rolling daily roll-up. `days[<utc-date>]` carries
+  `tokens`, `toolCalls`, `wallSeconds` for each WorkItem. Computed by
+  `scripts/factory/ledger-write.sh end`; never edit by hand.
+- `dashboard/index.html` (Phase 3) — generated by `dashboard.sh`. Not
+  yet wired in.
 
-- `lock.json` — multi-session lock (ADR 0003).
-- `budget.json` — rolling per-day usage (Phase 2). Bounded to ~14 days.
-- (future) dashboard snapshots.
-
-Never push to this branch from a working copy. All writes go through
-the GitHub Contents API; the only blessed clients are
-`scripts/factory/*.sh`.
+This branch is rewritten frequently; do not depend on its history.
 
 ### `factory/ledger` branch
 
-Append-only. One Run per file:
+Append-only. Layout:
 
-- `runs/YYYY/MM/DD/<ulid>.json`
-- `runs/by-workitem/<id>.jsonl` — index per WorkItem; cheap reads.
+```
+runs/YYYY/MM/DD/<ulid>.json    # one Run per file
+runs/by-workitem/<id>.jsonl    # append-only index per WorkItem
+artifacts/YYYY/MM/DD/<ulid>.md # one snapshot per artefact comment
+```
 
-Schema in [`.factory/ledger-schema.md`](../.factory/ledger-schema.md).
-Files here are immutable; if you "fix" a Run, do it by appending a
-correction, not by editing.
+Run records are immutable once written; artefacts are immutable
+snapshots of intake/spec/plan/qa/implement comments at the moment
+they were posted (the comments themselves are mutable). To compact,
+open a new branch (`factory/ledger-archive-<year>`) rather than
+editing in place.
 
 ## Failure-mode index
 
