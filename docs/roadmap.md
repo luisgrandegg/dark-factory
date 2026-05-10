@@ -160,6 +160,16 @@ library of repeatable skills the orchestrator can choose from.
       in `.factory/schedule-schema.md`.
 - [ ] Multi-task plans with parallel implementation
 - [ ] Optional MCP integrations (additional source-of-truth tools)
+- [ ] SDLC step contracts + implementation registry — generalise the
+      `skill:*` selection pattern to every station, so consumer repos
+      plug in their own intake / qa / integrate handlers without
+      forking the orchestrator. See
+      [ADR 0005](./adrs/0005-sdlc-step-contract.md).
+- [ ] Repo-level check harness — `.factory/checks.yml` declares
+      baseline checks (lint, format, typecheck, etc.) that run at
+      `implement.exit` and re-run at `qa`, AND-ed with the per-
+      WorkItem test plan. See
+      [ADR 0006](./adrs/0006-repo-check-harness.md).
 
 ---
 
